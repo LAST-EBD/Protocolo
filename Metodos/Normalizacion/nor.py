@@ -1,3 +1,5 @@
+#Ahora si que si!!!
+
 parametros = {}
 
 
@@ -17,8 +19,3 @@ def nor(ruta):
                 lista_nor1bis = [nor1(banda, 22), nor1_bis(banda,11), nor1_bis(banda,22), nor1(banda,33), nor1_bis(banda,33)]
                 for i in lista_nor1bis:
                     i
-            else:
-                if banda_num!='b7':
-                    print 'parametros de ', banda_num, 'banda obtenidos. Pasamos a la siguiente\n'
-                else: 
-                    print 'parametros de b7 obtenidos, bucle finalizado'

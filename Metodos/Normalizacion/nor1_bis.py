@@ -106,6 +106,8 @@ def nor1_bis(banda, std):
         
         if r_value > 0.85 and min(values.values()) >= 10:
             parametros[banda_num] = {'slope': slope, 'intercept': intercept, 'r': r_value}
-    
-    
-    
+            print 'parametros en nor1_bis: ', parametros, '\n'
+            nor2(banda, slope, intercept)
+            print 'Normalizacion de ', banda_num, ' realizada.'
+        else:
+            pass
