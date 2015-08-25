@@ -944,7 +944,7 @@ class Protocolo(object):
         if not os.path.exists(path_nor_escena):
             os.makedirs(path_nor_escena)
         banda_num = banda[-6:-4]
-        outFile = os.path.join(path_nor_escena, self.escena + 'grn1_' + banda_num + '.img')
+        outFile = os.path.join(path_nor_escena, self.escena + '_grn1_' + banda_num + '.img')
         
         with rasterio.drivers():
             
