@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[13]:
+# In[1]:
 
 import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat
 import numpy as np
@@ -255,147 +255,170 @@ class Protocolo(object):
         os.remove(self.bat)
         
         
-    def mascara_kl(self):
-        
-        '''-----\n
-        Este metodo genera las mascaras de las zonas donde se suelen dar los kl'''
-        
-        lista = ['B1', 'B2', 'B3', 'B4','B5', 'B6', 'B6', 'B7', 'B9']
-        shape = r'C:\Users\Diego\Desktop\Landsat_8\normalizacion l8_shapes\embalses\Emb_Clip_Ori.shp'
-        crop = "-crop_to_cutline"
-        path_escena = os.path.join(self.ori, self.escena)
-        
-        for i in os.listdir(path_escena):
+    def get_kl_csw(self):
+    
+    #Empezamos borrando los archivos de temp, la idea de esto es que al acabar una escena queden disponibles
+    #por si se quiere comprobar algo. Ya aqui se borran antes de comenzar la siguiente
+        t = time.time()
 
+        temp = os.path.join(self.data, 'temp')
+        for i in os.listdir(temp):
+            arz = os.path.join(temp, i)
+            os.remove(arz)
+
+        #Hacemos el recorte al dtm para que tenga la misma extension que la escena y poder operar con los arrays
+        t = time.time()
+        shape = os.path.join(temp, 'poly_escena.shp')
+
+        for i in os.listdir(self.ruta_escena):
+
+            if i.endswith('B1.TIF'):
+                raster = os.path.join(self.ruta_escena, i)
+
+        cmd = ["gdaltindex", shape, raster]
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        stdout,stderr=proc.communicate()
+        exit_code=proc.wait()
+
+        if exit_code: 
+            raise RuntimeError(stderr)
+        else:
+            print stdout
+            print 'marco generado'
+
+        #ya tenemos el dtm recortado guardado en data/temp, ahora vamos a generar el hillshade. Para ello primero 
+        #hay que recortar el dtm
+        dtm_escena = os.path.join(temp, 'dtm_escena.img')
+        for i in os.listdir(self.data):
+            if i.endswith('full.img'):
+                dtm = os.path.join(self.data, i)
+
+        cmd = ["gdalwarp", "-dstnodata" , "0" , "-cutline", "-crop_to_cutline"]
+        cmd.append(dtm)
+        cmd.append(dtm_escena)
+        cmd.insert(4, shape)
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        stdout,stderr=proc.communicate()
+        exit_code=proc.wait()
+
+        if exit_code: 
+            raise RuntimeError(stderr)
+        else:
+            print stdout
+            print 'dtm_escena generado'
+
+        #Ya tenemos el dtm de la escena, ahora vamos a obtener el hillshade, primero debemos tomar los parámtros solares del MTL
+        for i in os.listdir(self.ruta_escena):
+            if i.endswith('MTL.txt'):
+                mtl = os.path.join(self.ruta_escena,i)
+                arc = open(mtl,'r')
+                for i in arc:
+                    if 'SUN_AZIMUTH' in i:
+                        azimuth = float(i.split("=")[1])
+                    elif 'SUN_ELEVATION' in i:
+                        elevation = float(i.split("=")[1])
+
+        #Una vez tenemos estos parámetros generamos el hillshade
+        salida = os.path.join(temp, 'hillshade.img')
+        cmd = ["gdaldem", "hillshade", "-az", "-alt", "-of", "ENVI"]
+        cmd.append(dtm_escena)
+        cmd.append(salida)
+        cmd.insert(3, str(azimuth))
+        cmd.insert(5, str(elevation))
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        stdout,stderr=proc.communicate()
+        exit_code=proc.wait()
+
+        if exit_code: 
+            raise RuntimeError(stderr)
+        else:
+            print stdout
+            print 'Hillshade generado'
+
+        #Ya está el hillshade en data/temp. También tenemos ya la Fmask generada en ori, así que ya podemos operar con los arrays
+        for i in os.listdir(self.ruta_escena):
+            if i.endswith('MTLFmask'):
+                rs = os.path.join(self.ruta_escena, i)
+                fmask = gdal.Open(rs)
+                Fmask = fmask.ReadAsArray()
+        for i in os.listdir(temp):
+            if i.endswith('shade.img'):
+                rst = os.path.join(temp, i)
+                print rst
+                hillshade = gdal.Open(rst)
+                Hillshade = hillshade.ReadAsArray()
+
+        #Queremos los pixeles de cada banda que esten dentro del valor agua (1) y sin nada definido ((0) 
+        #para las sombras) de la Fmask (con lo cual también excluimos las nubes y sombras de nubes). 
+        #Junto con estos valores, queremos también los valores que caen en sombra (se ha decidido que 
+        #el valor de corte más adecuado es el percentil 20)
+
+        #Arriba estamos diciendo que queremos el mínimo del agua o de la escena completa sin nubes ni 
+        #sombras ni agua pero en sombra orográfica
+
+        #Ahora vamos a aplicar la máscara y hacer los histogramas
+        bandas = ['B1', 'B2', 'B3', 'B4','B5', 'B6', 'B6', 'B7', 'B9']
+        lista_kl = []
+        for i in os.listdir(self.ruta_escena):
             banda = i[-6:-4]
-
-            if banda in lista:
-
-                cmd = ["gdalwarp", "-dstnodata" , "0" , "-cutline", ]
-                path_masks = os.path.join(path_escena, 'masks')
-                if not os.path.exists(path_masks):
-                    os.makedirs(path_masks)
-
-                raster = os.path.join(path_escena, i)
-                salida = os.path.join(path_masks, i[-6:-4]+'_mask.TIF')
-                cmd.insert(4, shape)
-                cmd.insert(5, crop)
-                cmd.insert(6, raster)
-                cmd.insert(7, salida)
-
-                proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-                stdout,stderr=proc.communicate()
-                exit_code=proc.wait()
-
-                if exit_code: 
-                    raise RuntimeError(stderr)
-                #else: print stdout 
-                    
-        
-    def make_hist(self):
-        
-        '''-----\n
-        Este metodo realiza los histogramas los valores con una frecuencia acumulada por
-        debajo de un valor. Los histogramas generados los guardara en rad en formato png'''
-        
-        path_escena = os.path.join(self.ori, self.escena)
-        path_masks = os.path.join(path_escena, 'masks')
-        path_rad = os.path.join(self.rad, self.escena)
-        if not os.path.exists(path_rad):
-            os.makedirs(path_rad)
-        
-        for i in os.listdir(path_masks):
-                    
-            if i.endswith('.TIF') and not i.startswith('cloud'):
-
-                rs = os.path.join(path_masks, i)
-                raster = gdal.Open(rs)
-                banda = i[:2]
-
-                # read raster as array
-                bandraster = raster.GetRasterBand(1)
+            if banda in bandas:
+                raster = os.path.join(self.ruta_escena, i)
+                bandraster = gdal.Open(raster)
                 data = bandraster.ReadAsArray()
-                mask = (data != 0)
-                myArray = data[mask]
+                data2 = data[((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
+                lista_kl.append(data2.min())#añadimos el valor minimo (podría ser perceniles) a la lista de kl
+                lista = sorted(data2.tolist())
+                #nmask = (data2<lista[1000])#pobar a coger los x valores más bajos, a ver hasta cual aguanta bien
+                data3 = data2[data2<lista[1000]]
 
-                lista = sorted(myArray.tolist())
-                nmask = (myArray<lista[1000])#pobar a coger los x valores más bajos, a ver hasta cual aguanta bien
-                myArray2 = myArray[nmask]
-
-                df = pandas.DataFrame(myArray2)
+                df = pandas.DataFrame(data3)
                 #plt.figure(); df.hist(figsize=(10,8), bins = 100)#incluir titulo y rotulos de ejes
                 plt.figure(); df.hist(figsize=(10,8), bins = 50, cumulative=False, color="Red"); 
                 plt.title(self.escena + '_gr_' + banda, fontsize = 18)
                 plt.xlabel("Pixel Value", fontsize=16)  
                 plt.ylabel("Count", fontsize=16)
-                
-                name = os.path.join(path_rad, self.escena + '_gr_' + banda.lower() + '.png')
-                plt.savefig(name)
-        
-        plt.close('all')
-                     
-                    
-    def get_kl(self):
-        
-        '''-----\n
-        Este metodo obtiene los kl y los pasa al archivo kl de la carpeta rad'''
-        
-        #Hay que dejar de hacer las mascaras y simplemente aplicarlas al array
-        lista_kl = []
-        path_masks = os.path.join(self.ori, os.path.join(self.escena, 'masks'))
-        
-        for i in os.listdir(path_masks):
-
-            if i.endswith('.TIF') and not i.startswith('cloud'):
-
-                raster = os.path.join(path_masks, i)
-                raster = gdal.Open(raster)
-
-                # read raster as array
-                bandraster = raster.GetRasterBand(1)
-                arr_band = bandraster.ReadAsArray()
-                mask = (arr_band != 0)
-                myArray = arr_band[mask]
-
-                #kl = myArray.min() #Asi cogeriamos el minimo de cada banda
-                kl = int(np.percentile(myArray, 1)) #Asi cogemos el valor que deja por debajo el 1%
-                lista_kl.append(kl)
-        
-        for i in os.listdir(self.rad):
-            
-            if i.endswith('.rad'):
-
-                archivo = os.path.join(self.rad, i)
-                dictio = {6: lista_kl[0], 7: lista_kl[1], 8: lista_kl[2], 9: lista_kl[3],                           10: lista_kl[4], 11: lista_kl[5], 12: lista_kl[6], 14: lista_kl[7]}
-
-                rad = open(archivo, 'r')
-                rad.seek(0)
-                lineas = rad.readlines()
-
-                for l in range(len(lineas)):
-
-                    if l in dictio.keys():
-                        lineas[l] = lineas[l].rstrip()[:-4] + str(dictio[l]) + '\n'
-                    else: continue
-
-                rad.close()
-
-                f = open(archivo, 'w')
-                for linea in lineas:
-                    f.write(linea)
-
-                f.close()
-                
-                src = os.path.join(self.rad, i)
                 path_rad = os.path.join(self.rad, self.escena)
                 if not os.path.exists(path_rad):
                     os.makedirs(path_rad)
-                dst = os.path.join(path_rad, self.escena + '_kl.rad')
-                shutil.copy(src, dst)
-                    
-        print 'modificados los metadatos del rad'
-        
-        
+                name = os.path.join(path_rad, self.escena + '_gr_'+ banda.lower() + '.png')
+                plt.savefig(name)
+        plt.close('all')
+        print 'Histogramas generados'
+
+        #Hasta aqui tenemos los histogramas generados y los valores minimos guardados en lista_kl, ahora 
+        #debemos escribir los valores minimos de cada banda en el archivo kl.rad
+        for i in os.listdir(self.rad):
+
+                if i.endswith('.rad'):
+
+                    archivo = os.path.join(self.rad, i)
+                    dictio = {6: lista_kl[0], 7: lista_kl[1], 8: lista_kl[2], 9: lista_kl[3],                               10: lista_kl[4], 11: lista_kl[5], 12: lista_kl[6], 14: lista_kl[7]}
+
+                    rad = open(archivo, 'r')
+                    rad.seek(0)
+                    lineas = rad.readlines()
+
+                    for l in range(len(lineas)):
+
+                        if l in dictio.keys():
+                            lineas[l] = lineas[l].rstrip()[:-4] + str(dictio[l]) + '\n'
+                        else: continue
+
+                    rad.close()
+
+                    f = open(archivo, 'w')
+                    for linea in lineas:
+                        f.write(linea)
+
+                    f.close()
+
+                    src = os.path.join(self.rad, i)
+                    dst = os.path.join(path_rad, self.escena + '_kl.rad')
+                    shutil.copy(src, dst)
+
+        print 'modificados los metadatos del rad\nProceso finalizado en ' + str(time.time()-t) + ' segundos'
+            
+            
     def remove_masks(self):
         
         '''-----\n
@@ -410,7 +433,7 @@ class Protocolo(object):
             os.remove(name)
 
         shutil.rmtree(path_masks)
-            
+        
         
     def reproject(self):
         
@@ -1259,18 +1282,15 @@ class Protocolo(object):
         
         for i in os.listdir(path_rad):
     
-            if i.endswith('.doc') | i.endswith('.rel'):
-                
-                banda = i[-6:-4]
-                if banda in self.parametrosnor.keys():
-                               
-                    src = os.path.join(path_rad, i)
-                    dst = os.path.join(path_nor, i)
-                    shutil.copy(src, dst)
+            if i.endswith('.doc') or i.endswith('.rel'):
+                    
+                src = os.path.join(path_rad, i)
+                dst = os.path.join(path_nor, i)
+                shutil.copy(src, dst)
                 
         for i in os.listdir(path_nor):
             
-            if i.endswith('.doc') | i.endswith('.rel'):
+            if i.endswith('.doc') or i.endswith('.rel'):
                 src = os.path.join(path_nor, i)
                 dst = os.path.join(path_nor, i.replace('_gr_', '_grn1_'))
                 os.rename(src, dst)
@@ -1379,22 +1399,14 @@ class Protocolo(object):
         
         self.createG_bat()
         self.callG_bat()
-              
-        
-    def kl(self):
-        
-        ini = time.time()
-        self.mascara_kl()
-        self.make_hist()
-        self.get_kl()
-                
+                              
     def importacion(self):
         
         ini = time.time()
         
         self.clouds()
         self.m_import()
-        self.kl()
+        self.get_kl_csw()
         self.remove_masks()
         
         print "Mascara de nubes, importacion y obtencion de kls concluido en  " + str(time.time() - ini) + " segundos"
@@ -1513,4 +1525,73 @@ class Protocolo(object):
         print "Escena finalizada en  " + str((time.time() - ini)/60) + " minutos"
 
 ### ToDo: Incluir download,  upload to venus 
+
+
+# In[2]:
+
+b = Protocolo(r'C:\Protocolo\ori\20130910l8oli202_34')
+
+
+# In[3]:
+
+b.run_all()
+
+
+# In[ ]:
+
+import stat
+name = r'C:\Users\Diego\Desktop\Production\ori\20141202l8oli202_34\masks\b9_mask.TIF'
+path = r'C:\Users\Diego\Desktop\Production\ori\20141202l8oli202_34\masks'
+os.chmod(name, stat.S_IWRITE)
+os.remove(name)
+#shutil.rmtree(path)
+
+
+# In[ ]:
+
+os.remove(name)
+
+
+# In[ ]:
+
+import os
+
+#lista = ['20130910l8oli202_34', '20130521l8oli202_34', '20140828l8oli202_34']
+ruta = r'C:\Protocolo\ori'
+
+for i in os.listdir(ruta):
+    
+    if i not in [j for j in os.listdir(os.path.join(os.path.split!= '20140812l8oli202_34':
+        
+        try:
+
+            myLandsat = os.path.join(ruta, i)
+            b = Protocolo(myLandsat)
+            b.run_all()
+
+        except Exception as e:
+                print "Unexpected error:", type(e), e
+                continue 
+    
+
+
+# In[ ]:
+
+import os
+
+lista = ['20140321l8oli202_34', '20150220l8oli202_34', '20141218l8oli202_34']
+ruta = r'C:\Users\Diego\Desktop\Production\ori'
+
+for i in os.listdir(ruta):
+    
+    if i in lista:
+        
+        myLandsat = os.path.join(ruta, i)
+        b = Protocolo(myLandsat)
+        b.run_all()
+
+
+# In[ ]:
+
+
 
