@@ -45,7 +45,9 @@ class Protocolo(object):
         arc.close()
         #print "El porcentaje de nubes en la escena es de " + str(cloud_scene)
         
-        self.newesc = {'_id': self.escena, 'usgs_id': usgs_id, 'Clouds': {'cloud_scene': cloud_scene},                       'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': time.ctime(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
+        self.newesc = {'_id': self.escena, 'USGS_id': usgs_id, 'Clouds': {'cloud_scene': cloud_scene}, \
+                       'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': time.ctime(),\
+                                'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
         
         # Conectamos con MongoDB
         connection = pymongo.MongoClient("mongodb://localhost")
@@ -77,7 +79,7 @@ class Protocolo(object):
             
             t = time.time()
             #El valor (el ultimo valor, que es el % de confianza sobre el pixel (nubes)) se pedirá desde la interfaz que se haga. 
-            os.system('C:/Cloud_Mask/Fmask 1 1 0 50')
+            os.system('C:\Fmask\Fmask 1 1 0 50')
             print 'Mascara de nubes generada en ' + str(t-time.time()) + ' segundos'
                         
         except Exception as e:
@@ -435,57 +437,89 @@ class Protocolo(object):
         '''-----\n
         Este metodo reproyecta los geotiff originales, tomando todos los parametros que necesita para la salida, 
         extent, SCR, etc. Al mismo tiempo los cambia a formato img + hdr'''
-        
-        dgeo = {'B1': '_g_b1.img', 'B2': '_g_b2.img', 'B3': '_g_b3.img', 'B4': '_g_b4.img', 'B5': '_g_b5.img',             'B6': '_g_b6.img', 'B7': '_g_b7.img', 'B8': '_g_b8.img', 'B9': '_g_b9.img',           'B10': '_g_b10.img', 'B11': '_g_b11.img', 'BQA': '_g_bqa.img'}
+        ti = time.time()
+		
+        dgeo = {'B1': '_g_b1.img', 'B2': '_g_b2.img', 'B3': '_g_b3.img', 'B4': '_g_b4.img', 'B5': '_g_b5.img',\
+             'B6': '_g_b6.img', 'B7': '_g_b7.img', 'B8': '_g_b8.img', 'B9': '_g_b9.img',\
+           'B10': '_g_b10.img', 'B11': '_g_b11.img', 'BQA': '_g_bqa.img'}
         
         #cremos la carpeta con la ruta de destino
         destino = os.path.join(self.geo, self.escena)
-        if not os.path.exists(destino):
-            os.mkdir(destino)
+        os.mkdir(destino)
+        ref = os.path.join(self.data, '20020718l7etm202_34')
+        match_filename = os.path.join(ref, '20020718l7etm202_34_grn1_b5.img')
         
-        ti = time.time()
         #Entramos en el loop dentro de la carpeta y buscamos todos los archivos tipo .TIF
         for i in os.listdir(self.ruta_escena):
-    
+
             if i.endswith('.TIF'):
-                
-                t = time.time()
+
+                tini = time.time()
+                print "Reproyectando " + i
+
+                src_filename =  os.path.join(self.ruta_escena, i)
+                src = gdal.Open(src_filename, gdalconst.GA_ReadOnly)
+                src_proj = src.GetProjection()
+                src_geotrans = src.GetGeoTransform()
+
+                # De aqui tomamos los parametros que queremos que tenga la imagen de salida
+				match_ds = gdal.Open(match_filename, gdalconst.GA_ReadOnly)
+                match_proj = match_ds.GetProjection()
+                match_geotrans = match_ds.GetGeoTransform()
+                wide = match_ds.RasterXSize
+                high = match_ds.RasterYSize
+
                 banda = None
                 if len(i) == 28:
                     banda = i[-6:-4]
                 else:
                     banda = i[-7:-4]
+                    
+                dst_filename = os.path.join(destino, self.escena + dgeo[banda])
+                
+                # Output 
+                dst = gdal.GetDriverByName('ENVI').Create(dst_filename, wide, high, 1, gdalconst.GDT_UInt16)
+                dst.SetGeoTransform(match_geotrans)
+                dst.SetProjection(match_proj)
+                
+                # Do the work
+                gdal.ReprojectImage(src, dst, src_proj, match_proj, gdalconst.GRA_Cubic)
 
-                salida = os.path.join(destino, self.escena + dgeo[banda])
-                raster = os.path.join(self.ruta_escena, i)
-                match =  os.path.join(self.data, '20140929l8oli202_34_g_b1.img')
-                cmd = ['rio', 'warp', raster, salida, '--co', 'driver=envi', '--like',  match]
-                proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-                stdout,stderr=proc.communicate()
-                exit_code=proc.wait()
+                del dst # Flush
 
-                print 'banda '+ str(i) + 'finalizada en  ' + str(time.time()-t)
+                print i + " reproyectada en " + str(time.time()-tini) + " segundos"
                                
             elif i.endswith('MTLFmask'):
                 
                 path_nor = os.path.join(self.nor, self.escena)
                 if not os.path.exists(path_nor):
                     os.makedirs(path_nor)
-                    
-                t = time.time()
+                tini = time.time()
                 print "Reproyectando " + i
-                    
-                salida = os.path.join(path_nor, self.escena + '_Fmask.img')
-                raster = os.path.join(self.ruta_escena, i)
-                match =  'C:\\Users\\Diego\\Desktop\\Presentacion\\protocolo\\geo\\20140929l8oli202_34\\20140929l8oli202_34_g_b1.img'
 
-                cmd = ['rio', 'warp', raster, salida, '--co', 'driver=envi', '--like',  match]
-                #cmd = ['rio', 'warp', inPut, outPut, '--like',  match]
-                proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-                stdout,stderr=proc.communicate()
-                exit_code=proc.wait()
+                src_filename =  os.path.join(self.ruta_escena, i)
+                src = gdal.Open(src_filename, gdalconst.GA_ReadOnly)
+                src_proj = src.GetProjection()
+                src_geotrans = src.GetGeoTransform()
+
+                # De aqui tomamos los parametros que queremos que tenga la imagen de salida
+                match_ds = gdal.Open(match_filename, gdalconst.GA_ReadOnly)
+                match_proj = match_ds.GetProjection()
+                match_geotrans = match_ds.GetGeoTransform()
+                wide = match_ds.RasterXSize
+                high = match_ds.RasterYSize
+                    
+                dst_filename = os.path.join(path_nor, self.escena + '_Fmask.img')
                 
-                print 'banda '+ str(i) + 'finalizada en  ' + str(time.time()-t)
+                # Output 
+                dst = gdal.GetDriverByName('ENVI').Create(dst_filename, wide, high, 1, gdalconst.GDT_UInt16)
+                dst.SetGeoTransform(match_geotrans)
+                dst.SetProjection(match_proj)
+
+                # Do the work
+                gdal.ReprojectImage(src, dst, src_proj, match_proj, gdalconst.GRA_Cubic)
+
+                del dst # lush
                 
         print "Reproyección completa realizada en " + str((time.time()-ti)/60) + " minutos"
         
