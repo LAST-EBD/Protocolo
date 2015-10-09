@@ -45,9 +45,8 @@ class Protocolo(object):
         arc.close()
         #print "El porcentaje de nubes en la escena es de " + str(cloud_scene)
         
-        self.newesc = {'_id': self.escena, 'USGS_id': usgs_id, 'Clouds': {'cloud_scene': cloud_scene}, \
-                       'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': time.ctime(),\
-                                'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
+        self.newesc = {'_id': self.escena, 'usgs_id': usgs_id, 'Clouds': {'cloud_scene': cloud_scene},\
+                       'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': time.ctime(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
         
         # Conectamos con MongoDB
         connection = pymongo.MongoClient("mongodb://localhost")
@@ -79,7 +78,7 @@ class Protocolo(object):
             
             t = time.time()
             #El valor (el ultimo valor, que es el % de confianza sobre el pixel (nubes)) se pedirá desde la interfaz que se haga. 
-            os.system('C:\Fmask\Fmask 1 1 0 50')
+            os.system('C:/Cloud_Mask/Fmask 1 1 0 50')
             print 'Mascara de nubes generada en ' + str(t-time.time()) + ' segundos'
                         
         except Exception as e:
@@ -389,7 +388,8 @@ class Protocolo(object):
                 if i.endswith('.rad'):
 
                     archivo = os.path.join(self.rad, i)
-                    dictio = {6: lista_kl[0], 7: lista_kl[1], 8: lista_kl[2], 9: lista_kl[3],                               10: lista_kl[4], 11: lista_kl[5], 12: lista_kl[6], 14: lista_kl[7]}
+                    dictio = {6: lista_kl[0], 7: lista_kl[1], 8: lista_kl[2], 9: lista_kl[3], \
+                              10: lista_kl[4], 11: lista_kl[5], 12: lista_kl[6], 14: lista_kl[7]}
 
                     rad = open(archivo, 'r')
                     rad.seek(0)
@@ -437,89 +437,55 @@ class Protocolo(object):
         '''-----\n
         Este metodo reproyecta los geotiff originales, tomando todos los parametros que necesita para la salida, 
         extent, SCR, etc. Al mismo tiempo los cambia a formato img + hdr'''
-        ti = time.time()
-		
+        
         dgeo = {'B1': '_g_b1.img', 'B2': '_g_b2.img', 'B3': '_g_b3.img', 'B4': '_g_b4.img', 'B5': '_g_b5.img',\
              'B6': '_g_b6.img', 'B7': '_g_b7.img', 'B8': '_g_b8.img', 'B9': '_g_b9.img',\
            'B10': '_g_b10.img', 'B11': '_g_b11.img', 'BQA': '_g_bqa.img'}
         
         #cremos la carpeta con la ruta de destino
         destino = os.path.join(self.geo, self.escena)
-        os.mkdir(destino)
-        ref = os.path.join(self.data, '20020718l7etm202_34')
-        match_filename = os.path.join(ref, '20020718l7etm202_34_grn1_b5.img')
+        if not os.path.exists(destino):
+            os.mkdir(destino)
         
+        ti = time.time()
         #Entramos en el loop dentro de la carpeta y buscamos todos los archivos tipo .TIF
         for i in os.listdir(self.ruta_escena):
-
             if i.endswith('.TIF'):
+                if i.endswith('.TIF'):
+                    t = time.time()
+                    banda = None
+                    if len(i) == 28:
+                        banda = i[-6:-4]
+                    else:
+                        banda = i[-7:-4]
+                    raster = os.path.join(self.ruta_escena, i)
+                    salida = os.path.join(destino, self.escena + dgeo[banda])
+                    cmd = ['gdalwarp', '-s_srs', '"+proj=utm +zone=29 +datum=wgs84 +units=m"', '-t_srs', '"+proj=utm +zone=30 +ellps=intl +towgs84=-84,-107,-120,0,0,0,0 +units=m +no_defs"', '-r', 'cubic', '-te', '78000 4036980 340020 4269000', '-tr', '30 30', '-of', 'ENVI']
+                    cmd.append(raster)
+                    cmd.append(salida)
+                    warp = (" ").join(cmd)
+                    subprocess.call(warp)
 
-                tini = time.time()
-                print "Reproyectando " + i
-
-                src_filename =  os.path.join(self.ruta_escena, i)
-                src = gdal.Open(src_filename, gdalconst.GA_ReadOnly)
-                src_proj = src.GetProjection()
-                src_geotrans = src.GetGeoTransform()
-
-                # De aqui tomamos los parametros que queremos que tenga la imagen de salida
-				match_ds = gdal.Open(match_filename, gdalconst.GA_ReadOnly)
-                match_proj = match_ds.GetProjection()
-                match_geotrans = match_ds.GetGeoTransform()
-                wide = match_ds.RasterXSize
-                high = match_ds.RasterYSize
-
-                banda = None
-                if len(i) == 28:
-                    banda = i[-6:-4]
-                else:
-                    banda = i[-7:-4]
-                    
-                dst_filename = os.path.join(destino, self.escena + dgeo[banda])
-                
-                # Output 
-                dst = gdal.GetDriverByName('ENVI').Create(dst_filename, wide, high, 1, gdalconst.GDT_UInt16)
-                dst.SetGeoTransform(match_geotrans)
-                dst.SetProjection(match_proj)
-                
-                # Do the work
-                gdal.ReprojectImage(src, dst, src_proj, match_proj, gdalconst.GRA_Cubic)
-
-                del dst # Flush
-
-                print i + " reproyectada en " + str(time.time()-tini) + " segundos"
+                print 'banda '+ str(i) + 'finalizada en  ' + str(time.time()-t)
                                
             elif i.endswith('MTLFmask'):
                 
                 path_nor = os.path.join(self.nor, self.escena)
                 if not os.path.exists(path_nor):
                     os.makedirs(path_nor)
-                tini = time.time()
-                print "Reproyectando " + i
-
-                src_filename =  os.path.join(self.ruta_escena, i)
-                src = gdal.Open(src_filename, gdalconst.GA_ReadOnly)
-                src_proj = src.GetProjection()
-                src_geotrans = src.GetGeoTransform()
-
-                # De aqui tomamos los parametros que queremos que tenga la imagen de salida
-                match_ds = gdal.Open(match_filename, gdalconst.GA_ReadOnly)
-                match_proj = match_ds.GetProjection()
-                match_geotrans = match_ds.GetGeoTransform()
-                wide = match_ds.RasterXSize
-                high = match_ds.RasterYSize
                     
-                dst_filename = os.path.join(path_nor, self.escena + '_Fmask.img')
+                t = time.time()
+                print "Reproyectando " + i
+                    
+                salida = os.path.join(path_nor, self.escena + '_Fmask.img')
+                raster = os.path.join(self.ruta_escena, i)
+                cmd = ['gdalwarp', '-s_srs', '"+proj=utm +zone=29 +datum=wgs84 +units=m"', '-t_srs', '"+proj=utm +zone=30 +ellps=intl +towgs84=-84,-107,-120,0,0,0,0 +units=m +no_defs"', '-r', 'cubic', '-te', '78000 4036980 340020 4269000', '-tr', '30 30', '-of', 'ENVI']
+                cmd.append(raster)
+                cmd.append(salida)
+                warp = (" ").join(cmd)
+                subprocess.call(warp)
                 
-                # Output 
-                dst = gdal.GetDriverByName('ENVI').Create(dst_filename, wide, high, 1, gdalconst.GDT_UInt16)
-                dst.SetGeoTransform(match_geotrans)
-                dst.SetProjection(match_proj)
-
-                # Do the work
-                gdal.ReprojectImage(src, dst, src_proj, match_proj, gdalconst.GRA_Cubic)
-
-                del dst # lush
+                print 'banda '+ str(i) + 'finalizada en  ' + str(time.time()-t)
                 
         print "Reproyección completa realizada en " + str((time.time()-ti)/60) + " minutos"
         
@@ -532,7 +498,9 @@ class Protocolo(object):
         rutageo = os.path.join(self.geo, self.escena)
         for i in os.listdir(self.mimport):
     
-            d = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',                'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',                'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
+            d = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',\
+                'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',\
+                'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
 
             if i.endswith('.doc'):
                 
@@ -611,7 +579,9 @@ class Protocolo(object):
         rel = open(rel_file, 'r')
         lineas = rel.readlines()
         
-        dgeo = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',                'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',                'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
+        dgeo = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',\
+                'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',\
+                'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
         
         for l in range(len(lineas)):
     
@@ -967,7 +937,7 @@ class Protocolo(object):
 
             if lineas[l].startswith('NomFitxer=r_'):
                 bandname = lineas[l][-7:-5]
-                lineas[l] = lineas[l][:10] + '20150518l8202_34' + drad[bandname]+'\n'
+                lineas[l] = lineas[l][:10] + self.escena + drad[bandname]+'\n'
             elif lineas[l] == 'resolution=30\n':
                 pos = l+1
             elif lineas[l].startswith('TipusCompressio'):
@@ -1160,7 +1130,7 @@ class Protocolo(object):
             
             if i.endswith('Fmask.img'):
                 mask_nubes = os.path.join(path_nor, i)
-                print mask_nubes
+                print 'Mascara de nubes: ', mask_nubes
                     
         if mascara == self.noequilibrado:
             poly_inv_tipo = os.path.join(self.data, 'pol_inv_tipo.img')
@@ -1413,6 +1383,42 @@ class Protocolo(object):
 
                 with rasterio.open(outFile, 'w', **profile) as dst:
                     dst.write(rs.astype(rasterio.uint8))
+                    
+    def modify_hdr_rad_pro(self, ruta): 
+    
+    
+        '''-----\n
+        Este metodo corrige el ^P"@#&% tema de la proyección a ED50 PS, 
+        que Dios quiera que pronto se cambie a ETRS89 (y ya puestos en huso 29)'''
+        
+        match = "\nmap info = {UTM, 1.000, 1.000, 78000.000, 4269000.000, 3.0000000000e+001, 3.0000000000e+001, 30, North, European 1950 PS, units=Meters}\n"
+        wave = "wavelength units = Unknown\n"
+        #path_escena_geo = os.path.join(self.geo, self.escena)
+        for i in os.listdir(ruta):
+
+            if i.endswith('.hdr'):
+
+                archivo = os.path.join(ruta, i)
+                hdr = open(archivo, 'r')
+                hdr.seek(0)
+                lineas = hdr.readlines()
+                for l in lineas:
+                    if l.startswith('coordinate system string'):
+                        lineas.remove(l)
+                    elif l.startswith('band names'):
+                        lineas.remove(l)
+                lineas.append(match)
+                lineas.append(wave)
+
+
+                hdr.close()
+
+                f = open(archivo, 'w')
+                for linea in lineas:
+                    f.write(linea)
+
+                f.close()
+                print 'modificados (coordenadas) los metadatos de ', i
         
     
     
@@ -1448,6 +1454,8 @@ class Protocolo(object):
         self.copyDocG()
         self.modifyDocG()
         self.modifyRelG()
+        path_geo = os.path.join(self.geo, self.escena)
+        self.modify_hdr_rad_pro(path_geo)
         
         #Insertamos los datos en la MongoDB
         connection = pymongo.MongoClient("mongodb://localhost")
@@ -1479,12 +1487,15 @@ class Protocolo(object):
         self.modifyRelRad()
         self.re_clean_R()
         self.modifyDocR()
+        self.path_geo = os.path.join(self.geo, self.escena)
+        path_rad = os.path.join(self.rad, self.escena)
+        self.modify_hdr_rad_pro(path_rad)
         
         #Sacamos los valores del kl. 
-        path_rad_escena = os.path.join(self.rad, self.escena)
-        for i in os.listdir(path_rad_escena):
+        
+        for i in os.listdir(path_rad):
             if i.endswith('.rad'):
-                rad = os.path.join(path_rad_escena, i)
+                rad = os.path.join(path_rad, i)
                 f = open(rad, 'r')
                 lista = []
                 for l in f:
@@ -1521,6 +1532,8 @@ class Protocolo(object):
         path_escena_nor = os.path.join(self.nor, self.escena)
         self.fmask_legend(path_escena_nor)
         self.fmask_binary()
+        path_nor = os.path.join(self.nor, self.escena)
+        self.modify_hdr_rad_pro(path_nor)
         
         
         #Insertamos los datos en MongoDB
