@@ -1327,7 +1327,7 @@ class Protocolo(object):
                 lineas = doc.readlines()
                 for n,e in enumerate(lineas):
                     if e.startswith('max. value'):
-                        lineas[n] = 'max. value  : 4'
+                        lineas[n] = 'max. value  : 4\n'
                     elif e.startswith('legend cats'):
                         pos = n + 1
                         lineas[n] = 'legend cats : 5\n'
@@ -1437,7 +1437,7 @@ class Protocolo(object):
         Este metodo corrige el ^P"@#&% tema de la proyección a ED50 PS, 
         que Dios quiera que pronto se cambie a ETRS89 (y ya puestos en huso 29)'''
         
-        match = "\nmap info = {UTM, 1.000, 1.000, 78000.000, 4269000.000, 3.0000000000e+001, 3.0000000000e+001, 30, North, European 1950 PS, units=Meters}\n"
+        match = "map info = {UTM, 1.000, 1.000, 78000.000, 4269000.000, 3.0000000000e+001, 3.0000000000e+001, 30, North, European 1950 PS, units=Meters}\n"
         wave = "wavelength units = Unknown\n"
         #path_escena_geo = os.path.join(self.geo, self.escena)
         for i in os.listdir(ruta):
@@ -1448,14 +1448,10 @@ class Protocolo(object):
                 hdr = open(archivo, 'r')
                 hdr.seek(0)
                 lineas = hdr.readlines()
-                for l in lineas:
-                    if l.startswith('coordinate system string'):
-                        lineas.remove(l)
-                    elif l.startswith('band names'):
-                        lineas.remove(l)
-                lineas.append(match)
+                for n,e in enumerate(lineas):
+                    if e.startswith('map info'):
+                        lineas[n] = match
                 lineas.append(wave)
-
 
                 hdr.close()
 
@@ -1465,6 +1461,7 @@ class Protocolo(object):
 
                 f.close()
                 print 'modificados (coordenadas) los metadatos de ', i
+        
         
     
     
