@@ -33,6 +33,7 @@ class Protocolo(object):
         self.equilibrado = os.path.join(self.data, 'equilibrada.img')
         self.noequilibrado = os.path.join(self.data, 'MASK_1.img')
         self.parametrosnor = {}
+        self.iter = 1
         for i in os.listdir(self.ruta_escena):
             if i.endswith('MTL.txt'):
                 mtl = os.path.join(self.ruta_escena,i)
@@ -113,8 +114,12 @@ class Protocolo(object):
                 doc = open(fmask, 'r')
                 doc.seek(0)
                 lineas = doc.readlines()
+                
+                for n,e in enumerate(lineas):#Establecemos el tipo como clasificación, realmente, en Envi 5 al menos, no importa
+                    if e.startswith('file type'):
+                        lineas[n] = 'file type: ENVI Classification\n'
 
-                nodata = 'data ignore value = 255\n'
+                nodata = '\ndata ignore value = 255\n'
                 clases = 'classes = 5\n'
                 lookup = 'class lookup = {255,255,255, 0,0,255, 0,0,0, 0,255,255, 150,150,150}\n'
                 vals = 'class names = {Unclassified, Water, Shadow, Snow, Cloud}\n'
@@ -131,8 +136,14 @@ class Protocolo(object):
                     f.write(linea)
 
                 f.close()
-        
-        
+                
+            elif i.endswith('Fmask'):#Añadimos el .img  la Fmask porque David lo quiere...
+                
+                src = os.path.join(path, i)
+                dst = src + '.img'
+                os.rename(src, dst)
+                
+                
     def mascara_cloud_pn(self):
         
         '''-----\n
@@ -142,7 +153,7 @@ class Protocolo(object):
         crop = "-crop_to_cutline"
         
         for i in os.listdir(self.ruta_escena):
-            if i.endswith('Fmask'):
+            if i.endswith('Fmask.img'):
                 cloud = os.path.join(self.ruta_escena, i)
 
         cmd = ["gdalwarp", "-dstnodata" , "0" , "-cutline", ]
@@ -183,7 +194,7 @@ class Protocolo(object):
         mask = (cloud == 2) | (cloud == 4)
         cloud_msk = cloud[mask]
         clouds = float(cloud_msk.size)
-        PN = 595713.0
+        PN = 595713.0 
         pn_cover = round((clouds/PN)*100, 2)
         ds = None
         cloud = None
@@ -333,7 +344,7 @@ class Protocolo(object):
 
         #Ya está el hillshade en data/temp. También tenemos ya la Fmask generada en ori, así que ya podemos operar con los arrays
         for i in os.listdir(self.ruta_escena):
-            if i.endswith('MTLFmask'):
+            if i.endswith('MTLFmask.img'):
                 rs = os.path.join(self.ruta_escena, i)
                 fmask = gdal.Open(rs)
                 Fmask = fmask.ReadAsArray()
@@ -468,8 +479,8 @@ class Protocolo(object):
 
                 print 'banda '+ str(i) + 'finalizada en  ' + str(time.time()-t)
                                
-            elif i.endswith('MTLFmask'):
-                
+            elif i.endswith('MTLFmask.img'):
+                #Cona la Fmask elegimos la reproyeccion por Vecinos Naturales ya que de otro modo nos altera los valores de NoData
                 path_nor = os.path.join(self.nor, self.escena)
                 if not os.path.exists(path_nor):
                     os.makedirs(path_nor)
@@ -479,7 +490,7 @@ class Protocolo(object):
                     
                 salida = os.path.join(path_nor, self.escena + '_Fmask.img')
                 raster = os.path.join(self.ruta_escena, i)
-                cmd = ['gdalwarp', '-s_srs', '"+proj=utm +zone=29 +datum=wgs84 +units=m"', '-t_srs', '"+proj=utm +zone=30 +ellps=intl +towgs84=-84,-107,-120,0,0,0,0 +units=m +no_defs"', '-r', 'cubic', '-te', '78000 4036980 340020 4269000', '-tr', '30 30', '-of', 'ENVI']
+                cmd = ['gdalwarp', '-s_srs', '"+proj=utm +zone=29 +datum=wgs84 +units=m"', '-t_srs', '"+proj=utm +zone=30 +ellps=intl +towgs84=-84,-107,-120,0,0,0,0 +units=m +no_defs"', '-te', '78000 4036980 340020 4269000', '-tr', '30 30', '-of', 'ENVI', '-dstnodata', '255']
                 cmd.append(raster)
                 cmd.append(salida)
                 warp = (" ").join(cmd)
@@ -1053,7 +1064,7 @@ class Protocolo(object):
         else:
             print 'landsat 8\n'
             lstbandas = bandasl8
-            
+        
         for i in os.listdir(path_rad_escena):
             
             banda = os.path.join(path_rad_escena, i)
@@ -1064,14 +1075,19 @@ class Protocolo(object):
                 self.nor1(banda, self.noequilibrado)
                 #Esto es un poco feo, pero funciona. Probar a hacerlo con una lista de funciones
                 if banda_num not in self.parametrosnor.keys():
+                    self.iter += 1
                     self.nor1(banda, self.noequilibrado, std = 22)
                     if banda_num not in self.parametrosnor.keys():
+                        self.iter += 1
                         self.nor1(banda, self.equilibrado)
                         if banda_num not in self.parametrosnor.keys():
+                            self.iter += 1
                             self.nor1(banda, self.equilibrado, std = 22)
                             if banda_num not in self.parametrosnor.keys():
-                                self.nor1(banda, self.noequilibrado, std = 33)
+                                self.iter += 1
+                                self.nor1(banda, self.noequilibrado, std = 33,)
                                 if banda_num not in self.parametrosnor.keys():
+                                    self.iter += 1
                                     self.nor1(banda, self.noequilibrado, std = 33)
                                 else:
                                     print 'No se ha podido normalizar la banda ', banda_num
@@ -1094,8 +1110,7 @@ class Protocolo(object):
 
             try:
 
-                landsat.update_one({'_id':self.escena}, {'$set':{'Info.Pasos.nor': 
-                                    {'Normalize': 'True', 'Nor-Values': self.parametrosnor, 'Fecha': time.ctime()}}})
+                landsat.update_one({'_id':self.escena}, {'$set':{'Info.Pasos.nor': {'Normalize': 'True', 'Nor-Values': self.parametrosnor, 'Fecha': time.ctime()}}})
 
             except Exception as e:
                 print "Unexpected error:", type(e), e
@@ -1225,8 +1240,7 @@ class Protocolo(object):
             #Generamos el raster de salida después de aplicarle la ecuación de regresión. Esto seria el nor2
             #Por aqui hay que ver como se soluciona
             if r_value > 0.85 and min(values.values()) >= 10:
-                self.parametrosnor[banda_num]= {'Parametros':{'slope': slope, 'intercept': intercept, 'r': r_value, 'N': len(ref_PIA_NoData_STD)}, 
-                                                'Tipo_Area': values}
+                self.parametrosnor[banda_num]= {'Parametros':{'slope': slope, 'intercept': intercept, 'r': r_value, 'N': len(ref_PIA_NoData_STD), 'iter': self.iter}, 'Tipo_Area': values}
                 
                 print 'parametros en nor1: ', self.parametrosnor
                 print '\comenzando nor2\n'
@@ -1296,6 +1310,38 @@ class Protocolo(object):
                             
         print 'Archivos doc y rel copiados a nor'
         
+        for i in os.listdir(path_nor):
+            
+            if i.endswith('b2.doc'):
+                src = os.path.join(path_nor, i)
+                dst = os.path.join(path_nor, self.escena + '_Fmask.doc')
+                shutil.copy(src, dst)
+                
+        for i in os.listdir(path_nor):
+            
+            if i.endswith('Fmask.doc'):
+                categorias = 'category  0 : Unclassified\ncategory  1 : Water\ncategory  2 : Shadow\ncategory  3 : Snow\ncategory  4 : Cloud\n'
+                archivo = os.path.join(path_nor, i)
+                doc = open(archivo, 'r')
+                doc.seek(0)
+                lineas = doc.readlines()
+                for n,e in enumerate(lineas):
+                    if e.startswith('max. value'):
+                        lineas[n] = 'max. value  : 4'
+                    elif e.startswith('legend cats'):
+                        pos = n + 1
+                        lineas[n] = 'legend cats : 5\n'
+                    elif e.startswith('value units'):
+                        lineas[n] = 'value units : Category\n'
+                lineas.insert(pos, categorias)
+                
+                f = open(archivo, 'w')
+                for linea in lineas:
+                    f.write(linea)
+        #Cerramos y a otra cosa mariposa
+                f.close()
+                
+                        
     def modifyRelNor(self):
         
         '''-----\n
