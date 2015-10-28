@@ -1,3 +1,8 @@
+
+# coding: utf-8
+
+# In[1]:
+
 import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat
 import numpy as np
 import matplotlib.pyplot as plt
@@ -46,8 +51,7 @@ class Protocolo(object):
         arc.close()
         #print "El porcentaje de nubes en la escena es de " + str(cloud_scene)
         
-        self.newesc = {'_id': self.escena, 'usgs_id': usgs_id, 'Clouds': {'cloud_scene': cloud_scene},\
-                       'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': time.ctime(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
+        self.newesc = {'_id': self.escena, 'usgs_id': usgs_id, 'Clouds': {'cloud_scene': cloud_scene},                       'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': time.ctime(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
         
         # Conectamos con MongoDB
         connection = pymongo.MongoClient("mongodb://localhost")
@@ -399,8 +403,7 @@ class Protocolo(object):
                 if i.endswith('.rad'):
 
                     archivo = os.path.join(self.rad, i)
-                    dictio = {6: lista_kl[0], 7: lista_kl[1], 8: lista_kl[2], 9: lista_kl[3], \
-                              10: lista_kl[4], 11: lista_kl[5], 12: lista_kl[6], 14: lista_kl[7]}
+                    dictio = {6: lista_kl[0], 7: lista_kl[1], 8: lista_kl[2], 9: lista_kl[3],                               10: lista_kl[4], 11: lista_kl[5], 12: lista_kl[6], 14: lista_kl[7]}
 
                     rad = open(archivo, 'r')
                     rad.seek(0)
@@ -449,9 +452,7 @@ class Protocolo(object):
         Este metodo reproyecta los geotiff originales, tomando todos los parametros que necesita para la salida, 
         extent, SCR, etc. Al mismo tiempo los cambia a formato img + hdr'''
         
-        dgeo = {'B1': '_g_b1.img', 'B2': '_g_b2.img', 'B3': '_g_b3.img', 'B4': '_g_b4.img', 'B5': '_g_b5.img',\
-             'B6': '_g_b6.img', 'B7': '_g_b7.img', 'B8': '_g_b8.img', 'B9': '_g_b9.img',\
-           'B10': '_g_b10.img', 'B11': '_g_b11.img', 'BQA': '_g_bqa.img'}
+        dgeo = {'B1': '_g_b1.img', 'B2': '_g_b2.img', 'B3': '_g_b3.img', 'B4': '_g_b4.img', 'B5': '_g_b5.img',             'B6': '_g_b6.img', 'B7': '_g_b7.img', 'B8': '_g_b8.img', 'B9': '_g_b9.img',           'B10': '_g_b10.img', 'B11': '_g_b11.img', 'BQA': '_g_bqa.img'}
         
         #cremos la carpeta con la ruta de destino
         destino = os.path.join(self.geo, self.escena)
@@ -509,9 +510,7 @@ class Protocolo(object):
         rutageo = os.path.join(self.geo, self.escena)
         for i in os.listdir(self.mimport):
     
-            d = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',\
-                'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',\
-                'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
+            d = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',                'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',                'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
 
             if i.endswith('.doc'):
                 
@@ -590,9 +589,7 @@ class Protocolo(object):
         rel = open(rel_file, 'r')
         lineas = rel.readlines()
         
-        dgeo = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',\
-                'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',\
-                'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
+        dgeo = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',                'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',                'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
         
         for l in range(len(lineas)):
     
@@ -891,7 +888,7 @@ class Protocolo(object):
                 output_rs = os.path.join(path_escena_rad_byte, i)
 
                 lst = cmd.split()
-                lst.insert(12, input_rs)
+                lst.insert(12, input_rs)#cambiar por lst.append(input_rs)
                 lst.insert(13, output_rs)
 
                 proc = subprocess.Popen(lst,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
@@ -1439,6 +1436,7 @@ class Protocolo(object):
         
         match = "map info = {UTM, 1.000, 1.000, 78000.000, 4269000.000, 3.0000000000e+001, 3.0000000000e+001, 30, North, European 1950 PS, units=Meters}\n"
         wave = "wavelength units = Unknown\n"
+        css = 'coordinate system string = {PROJCS["UTM_Zone_30_Northern_Hemisphere",GEOGCS["GCS_European_1950",DATUM        ["D_European_1950",SPHEROID["International_1924",6378388,297]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]        ,PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",-3]        ,PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["Meter",1]]}'
         #path_escena_geo = os.path.join(self.geo, self.escena)
         for i in os.listdir(ruta):
 
@@ -1451,6 +1449,8 @@ class Protocolo(object):
                 for n,e in enumerate(lineas):
                     if e.startswith('map info'):
                         lineas[n] = match
+                    #elif e.startswith('coordinate system string'):
+                        #lineas[n] = css
                 lineas.append(wave)
 
                 hdr.close()
@@ -1462,7 +1462,23 @@ class Protocolo(object):
                 f.close()
                 print 'modificados (coordenadas) los metadatos de ', i
         
-        
+    def caller(self):
+    
+        arc = os.path.join(self.data, 'caller.bat')
+        cadena = 'call h:\\SIWeb\\imgs\\BATS\\prepara_una_imagen_LANDSAT_para_servidor.bat'
+        lineas = arc.readlines()
+
+        year = self.escena[:4]
+        month = self.escena[4:6]
+        day = self.escena[6:8]
+        sat = self.escena[8:13]
+
+        new = cadena + ' ' + year + ' ' + month + ' ' + day + ' ' + sat + '\n'
+        lineas.append(new)
+
+        caller = open(arc, 'w')
+        caller.writelines(lineas)
+        caller.close()
     
     
     def clouds(self):
@@ -1605,8 +1621,82 @@ class Protocolo(object):
         self.reproyeccion()
         self.Corrad()
         self.normalizacion()                       
-                
+        self.caller()      
         
         print "Escena finalizada en  " + str((time.time() - ini)/60) + " minutos"
 
 ### ToDo: Incluir download,  upload to venus 
+
+
+# In[2]:
+
+b = Protocolo(r'C:\Protocolo\ori\20151002l8oli202_34')
+
+
+# In[3]:
+
+b.run_all()
+
+
+# In[2]:
+
+import os
+
+ruta = r'C:\Protocolo\ori'
+ruta_nor = r'C:\Protocolo\nor'
+
+lista_escenas = [i for i in os.listdir(ruta)]
+lista_nor = [i for i in os.listdir(ruta_nor)]
+fail = []
+
+for i in lista_escenas:
+    
+    if i not in lista_nor:
+        
+        print i
+        
+        '''try:
+            
+            myLandsat = os.path.join(ruta, i)
+            b = Protocolo(myLandsat)
+            b.run_all()
+
+        except Exception as er:
+
+            print "Unexpected error:", type(er), er
+            fail.append(i)
+            continue
+        
+    else:
+        continue'''
+    
+
+
+# In[ ]:
+
+import os
+ruta = r'C:\Protocolo\ori'
+count = 0
+for i in os.listdir(ruta):
+    fold = os.path.join(ruta,i)
+    try:
+        for j in os.listdir(fold):
+            if j.endswith('.enp') or j.endswith('.xml'):
+                count += 1
+                arc = os.path.join(fold, j)
+                os.remove(arc)
+    except:
+        continue
+
+print count
+
+
+# In[1]:
+
+
+
+
+# In[ ]:
+
+
+
