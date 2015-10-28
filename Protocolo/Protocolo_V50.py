@@ -1464,7 +1464,8 @@ class Protocolo(object):
         
     def caller(self):
     
-        arc = os.path.join(self.data, 'caller.bat')
+        ar = os.path.join(self.data, 'caller.bat')
+        arc = open(ar, 'r')
         cadena = 'call h:\\SIWeb\\imgs\\BATS\\prepara_una_imagen_LANDSAT_para_servidor.bat'
         lineas = arc.readlines()
 
@@ -1476,7 +1477,7 @@ class Protocolo(object):
         new = cadena + ' ' + year + ' ' + month + ' ' + day + ' ' + sat + '\n'
         lineas.append(new)
 
-        caller = open(arc, 'w')
+        caller = open(ar, 'w')
         caller.writelines(lineas)
         caller.close()
     
@@ -1635,10 +1636,10 @@ b = Protocolo(r'C:\Protocolo\ori\20151002l8oli202_34')
 
 # In[3]:
 
-b.run_all()
+b.caller()
 
 
-# In[2]:
+# In[ ]:
 
 import os
 
@@ -1691,7 +1692,7 @@ for i in os.listdir(ruta):
 print count
 
 
-# In[1]:
+# In[ ]:
 
 
 
