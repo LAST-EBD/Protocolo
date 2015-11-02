@@ -68,7 +68,7 @@ class Protocolo(object):
         except Exception as e:
             
             landsat.update_one({'_id':self.escena}, {'$set':{'Info.Iniciada': time.ctime()}})
-            #print "Unexpected error:", type(e), e Podria dar un error por clave unica, por eso en
+            #print "Unexpected error:", type(e), se Podria dar un error por clave unica, por eso en
             #ese caso, lo que hacemos es actualizar la fecha en la que tratamos la imagen
         
     def fmask(self):
@@ -1631,12 +1631,12 @@ class Protocolo(object):
 
 # In[2]:
 
-b = Protocolo(r'C:\Protocolo\ori\20151002l8oli202_34')
+b = Protocolo(r'C:\Protocolo\ori\20140812l8oli202_34')
 
 
 # In[3]:
 
-b.caller()
+b.run_all()
 
 
 # In[ ]:
