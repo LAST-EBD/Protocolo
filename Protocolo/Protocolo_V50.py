@@ -1,7 +1,7 @@
-
-# coding: utf-8
-
-# In[1]:
+#Protocolo automatico para el tratamiento de imagenes Landsat
+#Diego Garcia Diaz
+#Laboratorio de SIG y Teledeteccion de la Estacion Biologica de Donana (CSIC)
+#Noviembre 2015
 
 import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat
 import numpy as np
@@ -1627,77 +1627,3 @@ class Protocolo(object):
         print "Escena finalizada en  " + str((time.time() - ini)/60) + " minutos"
 
 ### ToDo: Incluir download,  upload to venus 
-
-
-# In[2]:
-
-b = Protocolo(r'C:\Protocolo\ori\20140812l8oli202_34')
-
-
-# In[3]:
-
-b.run_all()
-
-
-# In[ ]:
-
-import os
-
-ruta = r'C:\Protocolo\ori'
-ruta_nor = r'C:\Protocolo\nor'
-
-lista_escenas = [i for i in os.listdir(ruta)]
-lista_nor = [i for i in os.listdir(ruta_nor)]
-fail = []
-
-for i in lista_escenas:
-    
-    if i not in lista_nor:
-        
-        print i
-        
-        '''try:
-            
-            myLandsat = os.path.join(ruta, i)
-            b = Protocolo(myLandsat)
-            b.run_all()
-
-        except Exception as er:
-
-            print "Unexpected error:", type(er), er
-            fail.append(i)
-            continue
-        
-    else:
-        continue'''
-    
-
-
-# In[ ]:
-
-import os
-ruta = r'C:\Protocolo\ori'
-count = 0
-for i in os.listdir(ruta):
-    fold = os.path.join(ruta,i)
-    try:
-        for j in os.listdir(fold):
-            if j.endswith('.enp') or j.endswith('.xml'):
-                count += 1
-                arc = os.path.join(fold, j)
-                os.remove(arc)
-    except:
-        continue
-
-print count
-
-
-# In[ ]:
-
-
-
-
-# In[ ]:
-
-
-
