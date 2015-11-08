@@ -1,7 +1,7 @@
-#Protocolo automatico para el tratamiento de imagenes Landsat
-#Diego Garcia Diaz
-#Laboratorio de SIG y Teledeteccion de la Estacion Biologica de Donana (CSIC)
-#Noviembre 2015
+
+# coding: utf-8
+
+# In[5]:
 
 import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat
 import numpy as np
@@ -159,7 +159,7 @@ class Protocolo(object):
         for i in os.listdir(self.ruta_escena):
             if i.endswith('Fmask.img'):
                 cloud = os.path.join(self.ruta_escena, i)
-
+        #usamos Gdalwarp para realizar las mascaras, llamandolo desde el modulo subprocess
         cmd = ["gdalwarp", "-dstnodata" , "0" , "-cutline", ]
         path_masks = os.path.join(self.ruta_escena, 'masks')
         if not os.path.exists(path_masks):
@@ -197,7 +197,7 @@ class Protocolo(object):
         
         mask = (cloud == 2) | (cloud == 4)
         cloud_msk = cloud[mask]
-        clouds = float(cloud_msk.size)
+        clouds = float(cloud_msk.size)#mirar a ver si no hay que multiplicar por 900 m2 del lado del pixel!!!!!!!!05/11/2015
         PN = 595713.0 
         pn_cover = round((clouds/PN)*100, 2)
         ds = None
@@ -297,8 +297,8 @@ class Protocolo(object):
             print stdout
             print 'marco generado'
 
-        #ya tenemos el dtm recortado guardado en data/temp, ahora vamos a generar el hillshade. Para ello primero 
-        #hay que recortar el dtm
+        #ya tenemos el dtm recortado guardado en data/temp, ahora vamos a generar el hillshade.  
+        #Para ello primero hay que recortar el dtm con el shape recien obtenido con la extension de la escena
         dtm_escena = os.path.join(temp, 'dtm_escena.img')
         for i in os.listdir(self.data):
             if i.endswith('full.img'):
@@ -318,7 +318,8 @@ class Protocolo(object):
             print stdout
             print 'dtm_escena generado'
 
-        #Ya tenemos el dtm de la escena, ahora vamos a obtener el hillshade, primero debemos tomar los parámtros solares del MTL
+        #Ahora ya tenemos el dtm de la escena, a continuacion vamos a obtener el hillshade 
+        #primero debemos tomar los parametros solares del MTL
         for i in os.listdir(self.ruta_escena):
             if i.endswith('MTL.txt'):
                 mtl = os.path.join(self.ruta_escena,i)
@@ -346,7 +347,8 @@ class Protocolo(object):
             print stdout
             print 'Hillshade generado'
 
-        #Ya está el hillshade en data/temp. También tenemos ya la Fmask generada en ori, así que ya podemos operar con los arrays
+        #Ya esta el hillshade en data/temp. También tenemos ya la Fmask generada en ori, 
+        #asi que ya podemos operar con los arrays
         for i in os.listdir(self.ruta_escena):
             if i.endswith('MTLFmask.img'):
                 rs = os.path.join(self.ruta_escena, i)
@@ -379,7 +381,7 @@ class Protocolo(object):
                 data2 = data[((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
                 lista_kl.append(data2.min())#añadimos el valor minimo (podría ser perceniles) a la lista de kl
                 lista = sorted(data2.tolist())
-                #nmask = (data2<lista[1000])#pobar a coger los x valores más bajos, a ver hasta cual aguanta bien
+                #nmask = (data2<lista[1000])#probar a coger los x valores más bajos, a ver hasta cual aguanta bien
                 data3 = data2[data2<lista[1000]]
 
                 df = pandas.DataFrame(data3)
@@ -463,7 +465,7 @@ class Protocolo(object):
         #Entramos en el loop dentro de la carpeta y buscamos todos los archivos tipo .TIF
         for i in os.listdir(self.ruta_escena):
             if i.endswith('.TIF'):
-                if i.endswith('.TIF'):
+                if i.endswith('.TIF'):#mirar a ver porque leches está ésto duplicado!!!!05/11/2015
                     t = time.time()
                     banda = None
                     if len(i) == 28:
@@ -1272,7 +1274,7 @@ class Protocolo(object):
                 max_msk = (rs>=255)
                 #rs[nd] = 255
                 rs[min_msk] = 0
-                rs[max_msk] = 255
+                rs[max_msk] = 254
                 
                 rs = np.around(rs)
 
@@ -1627,3 +1629,77 @@ class Protocolo(object):
         print "Escena finalizada en  " + str((time.time() - ini)/60) + " minutos"
 
 ### ToDo: Incluir download,  upload to venus 
+
+
+# In[6]:
+
+b = Protocolo(r'C:\Protocolo\ori\20140812l8oli202_34')
+
+
+# In[7]:
+
+b.normalizacion()
+
+
+# In[ ]:
+
+import os
+
+ruta = r'C:\Protocolo\ori'
+ruta_nor = r'C:\Protocolo\nor'
+
+lista_escenas = [i for i in os.listdir(ruta)]
+lista_nor = [i for i in os.listdir(ruta_nor)]
+fail = []
+
+for i in lista_escenas:
+    
+    if i not in lista_nor:
+        
+        print i
+        
+        '''try:
+            
+            myLandsat = os.path.join(ruta, i)
+            b = Protocolo(myLandsat)
+            b.run_all()
+
+        except Exception as er:
+
+            print "Unexpected error:", type(er), er
+            fail.append(i)
+            continue
+        
+    else:
+        continue'''
+    
+
+
+# In[ ]:
+
+import os
+ruta = r'C:\Protocolo\ori'
+count = 0
+for i in os.listdir(ruta):
+    fold = os.path.join(ruta,i)
+    try:
+        for j in os.listdir(fold):
+            if j.endswith('.enp') or j.endswith('.xml'):
+                count += 1
+                arc = os.path.join(fold, j)
+                os.remove(arc)
+    except:
+        continue
+
+print count
+
+
+# In[ ]:
+
+
+
+
+# In[ ]:
+
+
+
