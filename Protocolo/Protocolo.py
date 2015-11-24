@@ -53,6 +53,8 @@ class Protocolo(object):
         
         self.newesc = {'_id': self.escena, 'usgs_id': usgs_id, 'Clouds': {'cloud_scene': cloud_scene},                       'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': time.ctime(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
         
+        #Abrimos el servidor de MongoDB
+        os.system(mongod) 
         # Conectamos con MongoDB
         connection = pymongo.MongoClient("mongodb://localhost")
 
@@ -1730,4 +1732,3 @@ class Protocolo(object):
         
         print "Escena finalizada en  " + str((time.time() - ini)/60) + " minutos"
 
-### ToDo: Incluir download,  upload to venus 
