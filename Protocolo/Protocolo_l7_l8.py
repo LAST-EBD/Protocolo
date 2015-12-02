@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat
 import numpy as np
 import matplotlib.pyplot as plt
@@ -106,14 +108,14 @@ class Landsat(object):
             
             print 'comenzando Fmask'
             t = time.time()
-            try:
                 #El valor (el ultimo valor, que es el % de confianza sobre el pixel (nubes)) se pedirá desde la interfaz que se haga. 
-                a = os.system('C:/Cloud_Mask/Fmask 1 1 0 {}'.format(self.umbral))
-                a
-                if a == 0:
-                    self.cloud_mask = 'Fmask'
-                    print 'Mascara de nubes (Fmask) generada en ' + str(t-time.time()) + ' segundos'
-            except:
+            a = os.system('C:/Cloud_Mask/Fmask 1 1 0 {}'.format(self.umbral))
+            a
+            if a == 0:
+                self.cloud_mask = 'Fmask'
+                print 'Mascara de nubes (Fmask) generada en ' + str(t-time.time()) + ' segundos'
+                
+            else:
                 
                 print 'comenzando BQA'
                 for i in os.listdir(self.ruta_escena):
@@ -523,7 +525,7 @@ class Landsat(object):
             
         else: 
 
-            self.hist = 5000
+            self.hist = 1000
             ####elegimos la mascara de gapnodata
             lista = []
             bands = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1', 'B6_VCID_2', 'B7']
@@ -538,24 +540,32 @@ class Landsat(object):
             gaps = sum(lista)
             print 'GAPS: ', gaps.min(), gaps.max()
             ######same code
-
-            '''bandas = ['B1', 'B2', 'B3', 'B4','B5', 'B7']
+            
+            
+            #NoData_cloud_mask = np.ma.masked_where(current_PIA==255,cloud_PIA)
+            #ref_PIA_NoData = np.ma.compressed(NoData_ref_mask)
+            
+            
+            bandas = ['B1', 'B2', 'B3', 'B4','B5', 'B7']
             lista_kl = []
             for i in os.listdir(ruta):
                 banda = i[-6:-4]
                 if banda in bandas:
                     raster = os.path.join(ruta, i)
-                    bandraster = gdal.Open(raster)
-                    data = bandraster.ReadAsArray()
+                    #bandraster = gdal.Open(raster)
+                    #data = bandraster.ReadAsArray()
+                    with rasterio.open(raster) as src:
+                        data = src.read()
                     #anadimos la distincion entre Fmask y BQA
                     if self.cloud_mask == 'Fmask':
                         print 'usando Fmask'
-                        data22 = data[((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
-                        data2 = data22[gaps == 8]
+                        data2 = data[(gaps == 8) & ((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
+                        #gaps2 = gaps[((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
+                        #data2 = data22[gaps2 == 8]
 
                     #else: Aqui iri al alternativa con Fmask, pero L7 no tiene banda de calidad, asi que no tiene sentido
                     #abria que poner la mascara del protocolo manual que hizo Javier Bustamante
-
+                    print 'data 2 obtenido'
                     lista_kl.append(data2.min())#añadimos el valor minimo (podría ser perceniles) a la lista de kl
                     lista = sorted(data2.tolist())
                     print 'lista: ', lista[:10]
@@ -607,9 +617,9 @@ class Landsat(object):
 
                         src = os.path.join(self.rad, i)
                         dst = os.path.join(path_rad, self.escena + '_kl.rad')
-                        shutil.copy(src, dst)'''
+                        shutil.copy(src, dst)
 
-            #print 'modificados los metadatos del archivo kl_l7.rad\nProceso finalizado en ' + str(time.time()-t) + ' segundos'
+            print 'modificados los metadatos del archivo kl_l7.rad\nProceso finalizado en ' + str(time.time()-t) + ' segundos'
     
             
     def remove_masks(self):
