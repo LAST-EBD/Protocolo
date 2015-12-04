@@ -7,6 +7,7 @@ Dentro de la carpeta Protocolo se encuentra el archivo Protocolo.py con la clase
 Referencias: 
 
 1) http://age-tig.es/2012_Madrid/ponencia1/Diaz-Delgado_final_par.pdf
+
 2) http://digital.csic.es/bitstream/10261/47158/1/ten94.pdf
 
 
