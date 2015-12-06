@@ -1,9 +1,8 @@
-# coding: utf-8
-
 import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
+from scipy import ndimage
 from osgeo import gdal, gdalconst
 from pymasker import landsatmasker, confidence
 
@@ -525,7 +524,7 @@ class Landsat(object):
             
         else: 
 
-            self.hist = 1000
+            #self.hist = 500
             ####elegimos la mascara de gapnodata
             lista = []
             bands = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1', 'B6_VCID_2', 'B7']
@@ -539,6 +538,12 @@ class Landsat(object):
 
             gaps = sum(lista)
             print 'GAPS: ', gaps.min(), gaps.max()
+            gaps[gaps!=8] = 0
+            gaps[gaps==8] = 1
+            print 'GAPS_reclassify: ', gaps.min(), gaps.max()
+            #Hacemos el erode
+            erode = ndimage.grey_erosion(gaps, size=(5,5,1))
+            
             ######same code
             
             
@@ -559,7 +564,7 @@ class Landsat(object):
                     #anadimos la distincion entre Fmask y BQA
                     if self.cloud_mask == 'Fmask':
                         print 'usando Fmask'
-                        data2 = data[(gaps == 8) & ((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
+                        data2 = data[(erode == 1) & ((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
                         #gaps2 = gaps[((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
                         #data2 = data22[gaps2 == 8]
 
@@ -746,10 +751,17 @@ class Landsat(object):
         rutageo = os.path.join(self.geo, self.escena)
         for i in os.listdir(self.mimport):
     
-            d = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',\
+            if self.sat == 'L8':
+            
+                d = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',\
                 'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',\
                 'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
-
+            
+            else:
+                
+                d = {'B1-B': '_g_b1', 'B2-G': '_g_b2', 'B3-R': '_g_b3', 'B4-IRp': '_g_b4', 'B5-IRm1': '_g_b5', 'B6-IRt': '_g_b6', 'B7-IRm2': '_g_b7',\
+                'B8-PAN': '_g_b8', 'B9-IRt_HG': '_g_b9'}
+                
             if i.endswith('.doc'):
                 
                 number = i[20:-7]
@@ -757,11 +769,13 @@ class Landsat(object):
                 src = os.path.join(self.mimport, i)
                 dst = os.path.join(rutageo, self.escena + key + '.doc')
                 shutil.copy(src, dst)
+                
             elif i.endswith('.rel'):
                 
                 src = os.path.join(self.mimport, i)
                 dst = os.path.join(rutageo, self.escena + '_g_' + i[-6:])
                 shutil.copy(src, dst)
+                
             else: continue
                 
         print 'Archivos doc y rel copiados a geo'
@@ -772,6 +786,7 @@ class Landsat(object):
         Este metodo edita los doc copiados a geo para que tenga los valores correctos'''
         
         ruta = os.path.join(self.geo, self.escena)
+        print ruta
         for i in os.listdir(ruta):
         
             if i.endswith('.doc'):
@@ -827,57 +842,63 @@ class Landsat(object):
         rel = open(rel_file, 'r')
         lineas = rel.readlines()
         
-        dgeo = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',\
-                'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',\
-                'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
+        if self.sat == 'L8':
         
-        for l in range(len(lineas)):
-    
-            if lineas[l].rstrip() == '[EXTENT]':
-                lineas[l-1] = pro
-            elif lineas[l].startswith('FileIdentifier'):
-                lineas[l] = 'FileIdentifier='+ self.escena + '_g_' + lineas[l][-9:]
-            elif lineas[l].startswith('IndividualName'):
-                lineas[l] = 'IndividualName=Digd_Geo\n'
-            elif lineas[l].startswith('PositionName'):
-                lineas[l] = 'PositionName=Tecnico GIS-RS LAST-EBD\n'
-            elif lineas[l].startswith('columns'):
-                lineas[l] = 'columns=8734\n'
-            elif lineas[l].startswith('rows'):
-                lineas[l] = 'rows=7734\n'
-            elif lineas[l].startswith('MinX'):
-                lineas[l] = 'MinX=78000\n'
-            elif lineas[l].startswith('MaxX'):
-                lineas[l] = 'MaxX=340020\n'
-            elif lineas[l].startswith('MinY'):
-                lineas[l] = 'MinY=4036980\n'
-            elif lineas[l].startswith('MaxY'):
-                lineas[l] = 'MaxY=4269000\n'
-            elif lineas[l].startswith('max. Y'):
-                lineas[l] = 'MinY=4036980\n'  
-            elif lineas[l].startswith('HorizontalSystemIdentifier'):
-                lineas[l] = 'HorizontalSystemIdentifier=UTM-30N-PS\n'
-            elif lineas[l].startswith('IndexsNomsCamps'):
-                lineas[l] = 'IndexsNomsCamps=1-CA,2-B,3-G,4-R,5-NIR,6-SWIR1,7-SWIR2,9-CI\n'
-            elif lineas[l].startswith('NomFitxer=LC8_202034'):
-                bandname = lineas[l][30:-8]
-                lineas[l] = 'NomFitxer='+self.escena+dgeo[bandname]+'.img\n'
-            elif lineas[l] == '[ATTRIBUTE_DATA:8-PAN]\n':
-                start_b8 = l
-            elif lineas[l] == '[ATTRIBUTE_DATA:9-CI]\n':
-                end_b8 = l
-            elif lineas[l].startswith('NomCamp_10-LWIR1=10-LWIR1'):
-                start_band_name = l
-            elif lineas[l].startswith('NomCamp_17=QA-CloudConfidence'):
-                end_band_name = l+1
-            elif lineas[l].startswith('[ATTRIBUTE_DATA:10-LWIR1]'):
-                start_end = l
-            else: continue
-                
-        rel.close()
+            dgeo = {'B1-CA': '_g_b1', 'B10-LWIR1': '_g_b10', 'B11-LWIR2': '_g_b11', 'B2-B': '_g_b2', 'B3-G': '_g_b3', 'B4-R': '_g_b4', 'B5-NIR': '_g_b5', 'B6-SWIR1': '_g_b6', 'B7-SWIR2': '_g_b7',\
+                    'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',\
+                    'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
 
-        new_list = lineas[:start_band_name]+lineas[end_band_name:start_b8]+lineas[end_b8:start_end]
-        new_list.remove('NomCamp_8-PAN=8-PAN\n')
+            for l in range(len(lineas)):
+
+                if lineas[l].rstrip() == '[EXTENT]':
+                    lineas[l-1] = pro
+                elif lineas[l].startswith('FileIdentifier'):
+                    lineas[l] = 'FileIdentifier='+ self.escena + '_g_' + lineas[l][-9:]
+                elif lineas[l].startswith('IndividualName'):
+                    lineas[l] = 'IndividualName=Digd_Geo\n'
+                elif lineas[l].startswith('PositionName'):
+                    lineas[l] = 'PositionName=Tecnico GIS-RS LAST-EBD\n'
+                elif lineas[l].startswith('columns'):
+                    lineas[l] = 'columns=8734\n'
+                elif lineas[l].startswith('rows'):
+                    lineas[l] = 'rows=7734\n'
+                elif lineas[l].startswith('MinX'):
+                    lineas[l] = 'MinX=78000\n'
+                elif lineas[l].startswith('MaxX'):
+                    lineas[l] = 'MaxX=340020\n'
+                elif lineas[l].startswith('MinY'):
+                    lineas[l] = 'MinY=4036980\n'
+                elif lineas[l].startswith('MaxY'):
+                    lineas[l] = 'MaxY=4269000\n'
+                elif lineas[l].startswith('max. Y'):
+                    lineas[l] = 'MinY=4036980\n'  
+                elif lineas[l].startswith('HorizontalSystemIdentifier'):
+                    lineas[l] = 'HorizontalSystemIdentifier=UTM-30N-PS\n'
+                elif lineas[l].startswith('IndexsNomsCamps'):
+                    lineas[l] = 'IndexsNomsCamps=1-CA,2-B,3-G,4-R,5-NIR,6-SWIR1,7-SWIR2,9-CI\n'
+                elif lineas[l].startswith('NomFitxer=LC8_202034'):
+                    bandname = lineas[l][30:-8]
+                    lineas[l] = 'NomFitxer='+self.escena+dgeo[bandname]+'.img\n'
+                elif lineas[l] == '[ATTRIBUTE_DATA:8-PAN]\n':
+                    start_b8 = l
+                elif lineas[l] == '[ATTRIBUTE_DATA:9-CI]\n':
+                    end_b8 = l
+                elif lineas[l].startswith('NomCamp_10-LWIR1=10-LWIR1'):
+                    start_band_name = l
+                elif lineas[l].startswith('NomCamp_17=QA-CloudConfidence'):
+                    end_band_name = l+1
+                elif lineas[l].startswith('[ATTRIBUTE_DATA:10-LWIR1]'):
+                    start_end = l
+                else: continue
+
+            rel.close()
+
+            new_list = lineas[:start_band_name]+lineas[end_band_name:start_b8]+lineas[end_b8:start_end]
+            new_list.remove('NomCamp_8-PAN=8-PAN\n')
+            
+        #else:
+        #aqui la modificacion del rel de geo
+        
         
         f = open(rel_file, 'w')
         for linea in new_list:
