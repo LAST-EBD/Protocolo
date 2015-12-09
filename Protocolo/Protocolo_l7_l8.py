@@ -1,3 +1,5 @@
+#coding utf-8
+
 import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat
 import numpy as np
 import matplotlib.pyplot as plt
@@ -52,7 +54,7 @@ class Landsat(object):
         self.noequilibrado = os.path.join(self.data, 'MASK_1.img')
         self.parametrosnor = {}
         self.iter = 1
-        self.cloud_mask = None
+        self.cloud_mask = None #Cambiar a Fmask po defecto
         for i in os.listdir(self.ruta_escena):
             if i.endswith('MTL.txt'):
                 mtl = os.path.join(self.ruta_escena,i)
@@ -896,15 +898,63 @@ class Landsat(object):
             new_list = lineas[:start_band_name]+lineas[end_band_name:start_b8]+lineas[end_b8:start_end]
             new_list.remove('NomCamp_8-PAN=8-PAN\n')
             
-        #else:
-        #aqui la modificacion del rel de geo
+        else: #L7
         
         
-        f = open(rel_file, 'w')
-        for linea in new_list:
-            f.write(linea)
+            dgeo = {'B1-B': '_g_b1', 'B2-G': '_g_b2', 'B3-R': '_g_b3', 'B4-IRp': '_g_b4', 'B5-IRm1': '_g_b5', 'B6-IRt': '_g_b6', 'B7-IRm2': '_g_b7',\
+                'B8-PAN': '_g_b8', 'B9-IRt_HG': '_g_b9'}
+            
+            for l in range(len(lineas)):
 
-        f.close()
+                if lineas[l].rstrip() == '[EXTENT]':
+                    lineas[l-1] = pro
+                elif lineas[l].startswith('FileIdentifier'):
+                    lineas[l] = 'FileIdentifier='+ self.escena + '_g_' + lineas[l][-9:]
+                elif lineas[l].startswith('IndividualName'):
+                    lineas[l] = 'IndividualName=Digd_Geo\n'
+                elif lineas[l].startswith('PositionName'):
+                    lineas[l] = 'PositionName=Tecnico GIS-RS LAST-EBD\n'
+                elif lineas[l].startswith('columns'):
+                    lineas[l] = 'columns=8734\n'
+                elif lineas[l].startswith('rows'):
+                    lineas[l] = 'rows=7734\n'
+                elif lineas[l].startswith('MinX'):
+                    lineas[l] = 'MinX=78000\n'
+                elif lineas[l].startswith('MaxX'):
+                    lineas[l] = 'MaxX=340020\n'
+                elif lineas[l].startswith('MinY'):
+                    lineas[l] = 'MinY=4036980\n'
+                elif lineas[l].startswith('MaxY'):
+                    lineas[l] = 'MaxY=4269000\n'
+                elif lineas[l].startswith('max. Y'):
+                    lineas[l] = 'MinY=4036980\n'  
+                elif lineas[l].startswith('HorizontalSystemIdentifier'):
+                    lineas[l] = 'HorizontalSystemIdentifier=UTM-30N-PS\n'
+                elif lineas[l].startswith('IndexsNomsCamps'):
+                    lineas[l] = 'IndexsNomsCamps=1-B,2-G,3-R,4-IRp,5-IRm1,7-IRm2\n'
+                elif lineas[l].startswith('NomFitxer=LE7_202034'):
+                    bandname = lineas[l][30:-8]
+                    lineas[l] = 'NomFitxer='+self.escena+dgeo[bandname]+'.img\n'
+                elif lineas[l] == '[ATTRIBUTE_DATA:6-IRt]\n':
+                    start_b6 = l-1
+                elif lineas[l] == '[ATTRIBUTE_DATA:7-IRm2]\n':
+                    start_b7 = l
+                elif lineas[l] == ('[ATTRIBUTE_DATA:8-PAN]\n'):
+                    start_b8 = l
+                else: continue
+
+            rel.close()
+
+            new_list = lineas[:start_b6]+lineas[start_b7:start_b8]
+            new_list.remove('NomCamp_6-IRt=6-IRt\n')
+            new_list.remove('NomCamp_9-IRt_HG=9-IRt_HG\n')
+            new_list.remove('NomCamp_8-PAN=8-PAN\n')
+
+            f = open(rel_file, 'w')
+            for linea in new_list:
+                f.write(linea)
+
+            f.close()
             
             
     def copy_files_GR(self):
@@ -950,7 +1000,10 @@ class Landsat(object):
         corrad = 'C:\MiraMon\CORRAD'
         num1 = '1'
         dtm = os.path.join(self.rad, 'sindato.img')
-        kl = os.path.join(self.rad, 'kl.rad')
+        if self.sat == 'L8':
+            kl = os.path.join(self.rad, 'kl.rad')
+        else:
+            kl = os.path.join(self.rad, 'kl_l7.rad')
         #REF_SUP y REF_INF es xa el ajuste o no a 0-100, mirar si se quiere o no
         string = '/MULTIBANDA /CONSERVAR_MDT /LIMIT_LAMBERT=73.000000 /REF_SUP_100 /REF_INF_0 /DT=c:\MiraMon'
 
@@ -1316,7 +1369,7 @@ class Landsat(object):
         bandasl8 = ['b2', 'b3', 'b4', 'b5', 'b6', 'b7']
         bandasl7 = ['b1', 'b2', 'b3', 'b4', 'b5', 'b7']
         
-        if 'l7' in self.escena:
+        if self.sat == 'L7':
             print 'landsat 7\n'
             lstbandas = bandasl7
         else:
@@ -1393,7 +1446,7 @@ class Landsat(object):
         dnorbandasl8 = {'b2': path_b1, 'b3': path_b2, 'b4': path_b3, 'b5': path_b4, 'b6': path_b5, 'b7': path_b7}
         dnorbandasl7 = {'b1': path_b1, 'b2': path_b2, 'b3': path_b3, 'b4': path_b4, 'b5': path_b5, 'b7': path_b7}
         
-        if 'l7' in self.escena:
+        if self.sat == 'L7':
             dnorbandas = dnorbandasl7
         else:
             dnorbandas = dnorbandasl8
@@ -1456,7 +1509,7 @@ class Landsat(object):
             pias_PIA_NoData = np.ma.compressed(NoData_pias_mask)
             cloud_PIA_NoData = np.ma.compressed(NoData_cloud_mask)
             
-            #Aplicamos la mascara de Nubes. se toma 1 porque se han igualado las 2 mascaras
+            #Aplicamos la mascara de Nubes. se toma 1 porque se han igualado las 2 mascaras (Fmask y BQA)
             cloud_current_mask = np.ma.masked_where((cloud_PIA_NoData==1),current_PIA_NoData)
             cloud_ref_mask = np.ma.masked_where((cloud_PIA_NoData==1),ref_PIA_NoData)
             cloud_pias_mask = np.ma.masked_where((cloud_PIA_NoData==1),pias_PIA_NoData)
@@ -1631,62 +1684,110 @@ class Landsat(object):
             if i.endswith('.rel'):
                 rel_file = os.path.join(path_nor, i)
         
-        for line in fileinput.input(rel_file, inplace = 1): 
-            print line.replace("_gr_", "_grn1_"),  
-        for line in fileinput.input(rel_file, inplace = 1): 
-            print line.replace("processes=1,2,3", "processes=1,2,3,4"),
-        for line in fileinput.input(rel_file, inplace = 1): 
-            print line.replace("IndexsNomsCamps=1-CA,2-B,3-G,4-R,5-NIR,6-SWIR1,7-SWIR2,9-CI", "IndexsNomsCamps=2-B,3-G,4-R,5-NIR,6-SWIR1,7-SWIR2"),
-        
-        rel_nor = open(rel_file, 'r')
-        lineas = rel_nor.readlines()
-        for i in range(len(lineas)):
-            if lineas[i] == '[QUALITY:LINEAGE]\n':
-                pos = i
-                            
-        #insertamos el texto
-        lineas.insert(pos, pro)
-        
-        #Ahora cambiamos el nombre a las bandas e incluimos el proceso 4 en el quality linage process
-        
+        if self.sat == 'L8':
             
-        #Cerramos el rel
-        rel_nor.close()
+            for line in fileinput.input(rel_file, inplace = 1): 
+                print line.replace("_gr_", "_grn1_"),  
+            for line in fileinput.input(rel_file, inplace = 1): 
+                print line.replace("processes=1,2,3", "processes=1,2,3,4"),
+            for line in fileinput.input(rel_file, inplace = 1): 
+                print line.replace("IndexsNomsCamps=1-CA,2-B,3-G,4-R,5-NIR,6-SWIR1,7-SWIR2,9-CI", "IndexsNomsCamps=2-B,3-G,4-R,5-NIR,6-SWIR1,7-SWIR2"),
+
+            rel_nor = open(rel_file, 'r')
+            lineas = rel_nor.readlines()
+            for i in range(len(lineas)):
+                if lineas[i] == '[QUALITY:LINEAGE]\n':
+                    pos = i
+
+            #insertamos el texto
+            lineas.insert(pos, pro)
+
+            #Ahora cambiamos el nombre a las bandas e incluimos el proceso 4 en el quality linage process
+
+
+            #Cerramos el rel
+            rel_nor.close()
+
+            for i in range(len(lineas)):
+                if lineas[i] == '[ATTRIBUTE_DATA:1-CA]\n':
+                    start_b1 = i
+                elif lineas[i] == '[ATTRIBUTE_DATA:2-B]\n':
+                    start_b2 = i
+                elif lineas[i] == '[ATTRIBUTE_DATA:9-CI]\n':
+                    start_b9 = i
+                elif lineas[i].startswith('descriptor=Banda 7'):
+                    lineas.insert(i+1, 'unitats=Refs*374\n')
+                elif lineas[i].startswith('descriptor=Banda 6'):
+                    lineas.insert(i+1, 'unitats=Refs*324\n')
+                elif lineas[i].startswith('descriptor=Banda 5'):
+                    lineas.insert(i+1, 'unitats=Refs*422\n')
+                elif lineas[i].startswith('descriptor=Banda 4'):
+                    lineas.insert(i+1, 'unitats=Refs*306\n')
+                elif lineas[i].startswith('descriptor=Banda 3'):
+                    lineas.insert(i+1, 'unitats=Refs*401\n')
+                elif lineas[i].startswith('unitats=Refs(%)*254'):
+                    lineas[i] = 'unitats=Refs*398\n'
+
+            new_lineas = lineas[:start_b1] + lineas[start_b2:start_b9]
+
+
+            for i in range(len(new_lineas)-2):
+                if new_lineas[i].startswith('NomCamp_1') or new_lineas[i].startswith('NomCamp_9'):
+                            new_lineas.remove(new_lineas[i])
+
+            #Abrimos el rel en modo escritura y le pasamos las lineas con el proceso 4 ya insertado como argumento
+            f = open(rel_file, 'w')
+            for linea in new_lineas:
+                f.write(linea)
+            #Cerramos y a otra cosa mariposa
+            f.close()
         
-        for i in range(len(lineas)):
-            if lineas[i] == '[ATTRIBUTE_DATA:1-CA]\n':
-                start_b1 = i
-            elif lineas[i] == '[ATTRIBUTE_DATA:2-B]\n':
-                start_b2 = i
-            elif lineas[i] == '[ATTRIBUTE_DATA:9-CI]\n':
-                start_b9 = i
-            elif lineas[i].startswith('descriptor=Banda 7'):
-                lineas.insert(i+1, 'unitats=Refs*374\n')
-            elif lineas[i].startswith('descriptor=Banda 6'):
-                lineas.insert(i+1, 'unitats=Refs*324\n')
-            elif lineas[i].startswith('descriptor=Banda 5'):
-                lineas.insert(i+1, 'unitats=Refs*422\n')
-            elif lineas[i].startswith('descriptor=Banda 4'):
-                lineas.insert(i+1, 'unitats=Refs*306\n')
-            elif lineas[i].startswith('descriptor=Banda 3'):
-                lineas.insert(i+1, 'unitats=Refs*401\n')
-            elif lineas[i].startswith('unitats=Refs(%)*254'):
-                lineas[i] = 'unitats=Refs*398\n'
-        
-        new_lineas = lineas[:start_b1] + lineas[start_b2:start_b9]
-                
-                
-        for i in range(len(new_lineas)-2):
-            if new_lineas[i].startswith('NomCamp_1') or new_lineas[i].startswith('NomCamp_9'):
-                        new_lineas.remove(new_lineas[i])
+        else:
             
-        #Abrimos el rel en modo escritura y le pasamos las lineas con el proceso 4 ya insertado como argumento
-        f = open(rel_file, 'w')
-        for linea in new_lineas:
-            f.write(linea)
-        #Cerramos y a otra cosa mariposa
-        f.close()
-        
+            for line in fileinput.input(rel_file, inplace = 1): 
+                print line.replace("_gr_", "_grn1_"),  
+            for line in fileinput.input(rel_file, inplace = 1): 
+                print line.replace("processes=1,2,3", "processes=1,2,3,4"),
+            
+            rel_nor = open(rel_file, 'r')
+            lineas = rel_nor.readlines()
+            for i in range(len(lineas)):
+                if lineas[i] == '[QUALITY:LINEAGE]\n':
+                    pos = i
+
+            #insertamos el texto
+            lineas.insert(pos, pro)
+
+            #Ahora cambiamos el nombre a las bandas e incluimos el proceso 4 en el quality linage process
+
+
+            #Cerramos el rel
+            rel_nor.close()
+
+            for i in range(len(lineas)):
+            
+                if lineas[i].startswith('descriptor=Banda 7'):
+                    lineas.insert(i+1, 'unitats=Refs*374\n')
+                elif lineas[i].startswith('descriptor=Banda 6'):
+                    lineas.insert(i+1, 'unitats=Refs*324\n')
+                elif lineas[i].startswith('descriptor=Banda 5'):
+                    lineas.insert(i+1, 'unitats=Refs*422\n')
+                elif lineas[i].startswith('descriptor=Banda 4'):
+                    lineas.insert(i+1, 'unitats=Refs*306\n')
+                elif lineas[i].startswith('descriptor=Banda 3'):
+                    lineas.insert(i+1, 'unitats=Refs*401\n')
+                elif lineas[i].startswith('unitats=Refs(%)*254'):
+                    lineas[i] = 'unitats=Refs*398\n'
+
+            new_lineas = lineas
+
+            #Abrimos el rel en modo escritura y le pasamos las lineas con el proceso 4 ya insertado como argumento
+            f = open(rel_file, 'w')
+            for linea in new_lineas:
+                f.write(linea)
+            #Cerramos y a otra cosa mariposa
+            f.close()
+            
         
     def fmask_binary(self):
     
