@@ -30,6 +30,9 @@ Referencias:
 
 2) http://digital.csic.es/bitstream/10261/47158/1/ten94.pdf
 
+***Se recomienda abrir con Mozilla para ver el Manual en pdf renderizado directamente en GitHub***
+
+
 
 
 
