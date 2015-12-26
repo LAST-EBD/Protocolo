@@ -267,15 +267,6 @@ class Landsat(object):
             raise RuntimeError(stderr)
                           
         
-    #def get_cloud_pn(self):
-    
-        
-        #Este metodo obtiene la cobertura de nubes sobre el Parque Nacional y lo escribe en la Base de datos''''''
-        
-        #path_masks = os.path.join(self.ruta_escena, 'masks')
-        
-                
-        #fmask = os.path.join(path_masks, i)
         ds = gdal.Open(salida)
         cloud = np.array(ds.GetRasterBand(1).ReadAsArray())
         
@@ -560,7 +551,7 @@ class Landsat(object):
             
         else: 
 
-            self.hist = 100000
+            self.hist = 1000000
             ####elegimos la mascara de gapnodata
             lista = []
             bands = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1', 'B6_VCID_2', 'B7']
@@ -733,6 +724,8 @@ class Landsat(object):
                         cmd = ['gdalwarp', '-s_srs', '"+proj=utm +zone=29 +datum=wgs84 +units=m"', '-t_srs', '"+proj=utm +zone=30 +ellps=intl +towgs84=-84,-107,-120,0,0,0,0 +units=m +no_defs"', '-r', 'cubic', '-te', '78000 4036980 340020 4269000', '-tr', '30 30', '-of', 'ENVI']
                         cmd.append(raster)
                         cmd.append(salida)
+                        cmd.append('--config GDAL_CACHEMAX 8000 -wm 8000')
+                        cmd.append('--config GDAL_NUM_THREADS ALL_CPUS')
                         warp = (" ").join(cmd)
                         subprocess.call(warp)
 
@@ -752,6 +745,8 @@ class Landsat(object):
                     cmd = ['gdalwarp', '-s_srs', '"+proj=utm +zone=29 +datum=wgs84 +units=m"', '-t_srs', '"+proj=utm +zone=30 +ellps=intl +towgs84=-84,-107,-120,0,0,0,0 +units=m +no_defs"', '-te', '78000 4036980 340020 4269000', '-tr', '30 30', '-of', 'ENVI', '-dstnodata', '255']
                     cmd.append(raster)
                     cmd.append(salida)
+                    cmd.append('--config GDAL_CACHEMAX 8000 -wm 8000')
+                    cmd.append('--config GDAL_NUM_THREADS ALL_CPUS')
                     warp = (" ").join(cmd)
                     subprocess.call(warp)
 
@@ -771,6 +766,8 @@ class Landsat(object):
                 cmd = ['gdalwarp', '-s_srs', '"+proj=utm +zone=29 +datum=wgs84 +units=m"', '-t_srs', '"+proj=utm +zone=30 +ellps=intl +towgs84=-84,-107,-120,0,0,0,0 +units=m +no_defs"', '-te', '78000 4036980 340020 4269000', '-tr', '30 30', '-of', 'ENVI', '-dstnodata', '255']
                 cmd.append(raster)
                 cmd.append(salida)
+                cmd.append('--config GDAL_CACHEMAX 8000 -wm 8000')
+                cmd.append('--config GDAL_NUM_THREADS ALL_CPUS')
                 warp = (" ").join(cmd)
                 subprocess.call(warp)
                 
@@ -1663,7 +1660,7 @@ class Landsat(object):
         for i in os.listdir(path_rad):
     
             if i.endswith('.doc') or i.endswith('.rel'):
-                    
+            
                 src = os.path.join(path_rad, i)
                 dst = os.path.join(path_nor, i)
                 shutil.copy(src, dst)
@@ -1894,6 +1891,92 @@ class Landsat(object):
 
                 f.close()
                 print 'modificados (coordenadas) los metadatos de ', i
+                
+    def clean_nor(self):
+    
+        '''Este elimina del rel las bandas que no se han podido normalizar, asi mismo elimina tambien
+        los docs y hdr de dichas bandas'''
+
+        path_nor = os.path.join(self.nor, self.escena)
+        for i in os.listdir(path_nor):
+            if i.endswith('.rel'):
+                rel = os.path.join(path_nor, i)
+
+        #creamos 2 diccionarios para escribir el bat 
+        if self.sat == 'L8':
+
+            dcnor = {'b2': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:2-B\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:2-B:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_2-B\n',\
+                    'b3': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:3-G\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:3-G:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_3-G\n',\
+                    'b4': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:4-R\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:4-R:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_4-R\n',\
+                    'b5': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:5-NIR\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:5-NIR:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_5-NIR\n',\
+                    'b6': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:6-SWIR1\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:6-SWIR1:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_6-SWIR1\n',\
+                    'b7': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:7-SWIR2\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:7-SWIR2:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_7-SWIR2\n'}
+            
+            dindex = {'b2': '2-B', 'b3': '3-G', 'b4': '4-R', 'b5': '5-NIR', 'b6': '6-SWIR1', 'b7': '7-SWIR2'}
+        
+        else:
+
+            dcnor = {'b1': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:1-B\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:1-B:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_1-B\n',\
+                     'b2': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:2-G\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:2-G:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_2-G\n',\
+                     'b3': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:3-R\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:3-R:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_3-R\n',\
+                     'b4': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:4-IRp\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:4-IRp:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_4-IRp\n',\
+                     'b5': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:5-IRm1\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:5-IRm1:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_5-IRm1\n',\
+                     'b7': 'C:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:7-IRm2\nC:\MiraMon\CanviREL 3' + ' ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA:7-IRm2:BAND\nC:\MiraMon\CanviREL 2' + ' ' + os.path.join(path_nor, rel) + ' ' + 'ATTRIBUTE_DATA NomCamp_7-IRm2\n'}
+        
+            dindex = {'b1': '1-B', 'b2': '2-G', 'b3': '3-R', 'b4': '4-IRp', 'b5': '5-IRm1', 'b7': '7-IRm2'}
+
+        
+        #creamos 4 listas: Una para las bandas img, otra para los docs, otra para los hdrs y una vacia donde iran las bandas a borrar
+        bandas = [i[-6:-4] for i in os.listdir(path_nor) if i.endswith('.img') and 'grn1' in i]
+        docs = [i for i in os.listdir(path_nor) if i.endswith('.doc') and 'grn1' in i]
+        hdrs = [i for i in os.listdir(path_nor) if i.endswith('.hdr') and 'grn1' in i]
+        todelete = []
+
+        #agregamos las bandas a borrar a la lista todelete
+        for i in dcnor.keys():
+            if not i in bandas:
+                todelete.append(i)
+        print 'To Delete: ', todelete
+            
+        #comprobamos que no se hayan normalizado todas las bandas
+        if len(todelete) > 0:
+            
+            #creamos el string necesario para la clave del rel IndexsNomsCamps
+            a = [dindex[i] for i in bandas]
+            s = (',').join(a)
+            index = 'C:\MiraMon\CanviREL 1 ' + os.path.join(path_nor, rel) + ' ATTRIBUTE_DATA IndexsNomsCamps ' + s
+            print 'Index: ', index
+
+            #creamos un archivo bat en el que escribimos lo necesario para borrar las bandas que no se han podido normalizar del rel
+            bat = os.path.join(self.data, 'canvirel.bat')
+            l = open(bat, 'w')
+            for i in todelete:
+                l.write(dcnor[i])
+            l.write(index)
+            l.close()
+
+            #ejecutamos el bat y lo borramos
+            os.system(bat)
+            os.remove(bat)
+
+            #Ahora vamos a borrar los docs y hdrs de las bandas no normalizadas
+            for i in bandas:
+                for j in docs:
+                    if i not in j:
+                        doc = os.path.join(path_nor, j)
+                        os.remove(doc)
+                        print doc, ' borrado'
+
+            for i in bandas:
+                for j in hdrs:
+                    if i not in j:
+                        hdr = os.path.join(path_nor, j)
+                        os.remove(hdr)
+                        print hdr, ' borrado'
+                        
+        else:
+            
+            print 'Todas las bandas de la escena se han normalizado'
         
     def caller(self):
     
