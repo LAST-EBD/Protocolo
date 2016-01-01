@@ -70,13 +70,15 @@ class Landsat(object):
             self.gapfill = os.path.join(self.ruta_escena, 'gapfill')
         elif 'l8oli' in self.escena:
             self.sat = 'L8'
+        elif 'l5tm' in self.escena:
+            self.sat = 'L5'
         else:
             print ' No reconozco el satelite'
             
-        if self.sat == 'L8':
-            self.mimport = os.path.join(self.ruta_escena, 'miramon_import')
-        elif self.sat == 'L7':
+        if self.sat == 'L7' and self.escena > '20030714':
             self.mimport = os.path.join(self.gapfill, 'miramon_import')
+        else:
+            self.mimport = os.path.join(self.ruta_escena, 'miramon_import')
         if not os.path.exists(self.mimport):
             os.makedirs(self.mimport)
             
@@ -133,10 +135,10 @@ class Landsat(object):
         Este metodo genera el algortimo Fmask que sera el que vendra por defecto en la capa de calidad de
         las landsat a partir del otoño de 2015'''
         
-        if self.sat == 'L8':
-            os.chdir(self.ruta_escena)
-        else:
+        if self.sat == 'L7' and self.escena > '200030714':
             os.chdir(self.gapfill)
+        else:
+            os.chdir(self.ruta_escena)
             
         print 'comenzando Fmask'
         try:
@@ -238,11 +240,11 @@ class Landsat(object):
         shape = os.path.join(self.data, 'Limites_PN_Doñana.shp')
         crop = "-crop_to_cutline"
         
-        if self.sat == 'L8':
-            ruta = self.ruta_escena
-        else:
+        if self.sat == 'L7' and self.escena > '20030714':
             ruta = self.gapfill
-        
+        else:
+            ruta = self.ruta_escena
+            
         for i in os.listdir(ruta):
             if i.endswith('Fmask.img') | i.endswith('Fmask.TIF'):
                 cloud = os.path.join(ruta, i)
@@ -306,10 +308,11 @@ class Landsat(object):
         '''-----\n
         Este metodo crea un archivo bat con los parametros necesarios para realizar la importacion'''
         
-        if self.sat == 'L7':
+        if self.sat == 'L7' and self.escena > '20030714':
             ruta = self.gapfill
         else:
             ruta = self.ruta_escena
+            
         #estas son las variables que necesarias para crear el bat de Miramon
         tifimg = 'C:\\MiraMon\\TIFIMG'
         num1 = '9'
@@ -372,7 +375,7 @@ class Landsat(object):
         t = time.time()
         shape = os.path.join(temp, 'poly_escena.shp')
         
-        if self.sat == 'L7':
+        if self.sat == 'L7' and self.escena > '20030714':
             ruta = self.gapfill
         else:
             ruta = self.ruta_escena
@@ -493,16 +496,17 @@ class Landsat(object):
                                 data2 = data[((data != 0) & ((maskwater==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20))))))]
                                 print 'data2: ', data2.min(), data2.max(), data2.size
 
+                    print 'data 2 obtenido'
                     lista_kl.append(data2.min())#añadimos el valor minimo (podria ser perceniles) a la lista de kl
                     lista = sorted(data2.tolist())
                     print 'lista: ', lista[:10]
                     #nmask = (data2<lista[1000])#probar a coger los x valores mas bajos, a ver hasta cual aguanta bien
-                    data3 = data2[data2<lista[self.hist]]
+                    data3 = data2[:self.hist]
                     print 'data3: ', data3.min(), data3.max()
 
-                    df = pandas.DataFrame(data3)
+                    df = pandas.DataFrame(lista[:10000])
                     #plt.figure(); df.hist(figsize=(10,8), bins = 100)#incluir titulo y rotulos de ejes
-                    plt.figure(); df.hist(figsize=(10,8), bins = 50, cumulative=False, color="Red"); 
+                    plt.figure(); df.hist(figsize=(10,8), bins = 20, cumulative=False, color="Red"); 
                     plt.title(self.escena + '_gr_' + banda, fontsize = 18)
                     plt.xlabel("Pixel Value", fontsize=16)  
                     plt.ylabel("Count", fontsize=16)
@@ -549,9 +553,9 @@ class Landsat(object):
 
             print 'modificados los metadatos del archivo kl.rad\nProceso finalizado en ' + str(time.time()-t) + ' segundos'
             
-        else: 
+        elif self.sat == 'L7' and self.escena > '20030714': 
 
-            self.hist = 1000000
+            #self.hist = 1000000
             ####elegimos la mascara de gapnodata
             lista = []
             bands = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6_VCID_1', 'B6_VCID_2', 'B7']
@@ -602,12 +606,12 @@ class Landsat(object):
                     lista = sorted(data2.tolist())
                     print 'lista: ', lista[:10]
                     #nmask = (data2<lista[1000])#probar a coger los x valores mas bajos, a ver hasta cual aguanta bien
-                    data3 = data2[data2<lista[self.hist]]
+                    data3 = data2[:self.hist]
                     print 'data3: ', data3.min(), data3.max()
 
-                    df = pandas.DataFrame(data3)
+                    df = pandas.DataFrame(lista[:10000])
                     #plt.figure(); df.hist(figsize=(10,8), bins = 100)#incluir titulo y rotulos de ejes
-                    plt.figure(); df.hist(figsize=(10,8), bins = 50, cumulative=False, color="Red"); 
+                    plt.figure(); df.hist(figsize=(10,8), bins = 20, cumulative=False, color="Red"); 
                     plt.title(self.escena + '_gr_' + banda, fontsize = 18)
                     plt.xlabel("Pixel Value", fontsize=16)  
                     plt.ylabel("Count", fontsize=16)
@@ -652,8 +656,96 @@ class Landsat(object):
                         shutil.copy(src, dst)
 
             print 'modificados los metadatos del archivo kl_l7.rad\nProceso finalizado en ' + str(time.time()-t) + ' segundos'
-    
-            
+        
+        else:
+            #self.hist == 200000
+            print 'usando l5 o l7 pregapfill'
+            bandas = ['B1', 'B2', 'B3', 'B4','B5', 'B7']
+            lista_kl = []
+            for i in os.listdir(ruta):
+                banda = i[-6:-4]
+                if banda in bandas:
+                    raster = os.path.join(ruta, i)
+                    print raster
+                    #bandraster = gdal.Open(raster)
+                    #data = bandraster.ReadAsArray()
+                    with rasterio.open(raster) as src:
+                        data = src.read()
+                        print 'data ' ,data.shape
+                    #anadimos la distincion entre Fmask y BQA
+                    if self.cloud_mask == 'Fmask':
+                        print 'usando Fmask'
+                        print 'FM ', Fmask.shape
+                        print 'HS ', Hillshade.shape
+                        print 'Banda ', data.shape
+                        mask = data
+                        mask[mask != 0] == 1
+                        erodep = ndimage.grey_erosion(mask, size=(10,10,1))
+                        data2 = data[((erodep != 0) & ((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20))))))]
+                        print 'data2 ', data2.mean()
+                        #data2 = data2[(data2 != 0)]
+                        #gaps2 = gaps[((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
+                        #data2 = data22[gaps2 == 8]
+
+                    #else: Aqui iri al alternativa con Fmask, pero L7 no tiene banda de calidad, asi que no tiene sentido
+                    #abria que poner la mascara del protocolo manual que hizo Javier Bustamante
+                    print 'data 2 obtenido'
+                    lista_kl.append(data2.min())#añadimos el valor minimo (podria ser perceniles) a la lista de kl
+                    lista = sorted(data2.tolist())
+                    print 'lista: ', lista[:10]
+                    #nmask = (data2<lista[1000])#probar a coger los x valores mas bajos, a ver hasta cual aguanta bien
+                    data3 = data2[:self.hist]
+                    print 'data3: ', data3.min(), data3.max()
+
+                    df = pandas.DataFrame(lista[:10000])
+                    #plt.figure(); df.hist(figsize=(10,8), bins = 100)#incluir titulo y rotulos de ejes
+                    plt.figure(); df.hist(figsize=(10,8), bins = 20, cumulative=False, color="Red"); 
+                    plt.title(self.escena + '_gr_' + banda, fontsize = 18)
+                    plt.xlabel("Pixel Value", fontsize=16)  
+                    plt.ylabel("Count", fontsize=16)
+                    path_rad = os.path.join(self.rad, self.escena)
+                    if not os.path.exists(path_rad):
+                        os.makedirs(path_rad)
+                    name = os.path.join(path_rad, self.escena + '_gr_'+ banda.lower() + '.png')
+                    plt.savefig(name)
+
+            plt.close('all')
+            print 'Histogramas generados'
+
+            #Hasta aqui tenemos los histogramas generados y los valores minimos guardados en lista_kl, ahora 
+            #debemos escribir los valores minimos de cada banda en el archivo kl.rad
+            for i in os.listdir(self.rad):
+
+                if i.endswith('l7.rad'):
+
+                    archivo = os.path.join(self.rad, i)
+                    dictio = {5: lista_kl[0], 6: lista_kl[1], 7: lista_kl[2], 8: lista_kl[3], 9: lista_kl[4], 10: lista_kl[5]}
+
+                    rad = open(archivo, 'r')
+                    rad.seek(0)
+                    lineas = rad.readlines()
+
+                    for n, e in enumerate(lineas):
+
+                        if n in dictio.keys():
+                            print lineas[n]
+                            lineas[n] = lineas[n].split('=')[0] + '=' + str(dictio[n]) + '\n'
+                            print lineas[n]
+                    rad.close()
+
+                    f = open(archivo, 'w')
+                    for linea in lineas:
+                        f.write(linea)
+
+                    f.close()
+
+                    src = os.path.join(self.rad, i)
+                    dst = os.path.join(path_rad, self.escena + '_kl.rad')
+                    shutil.copy(src, dst)
+
+            print 'modificados los metadatos del archivo kl_l7.rad\nProceso finalizado en ' + str(time.time()-t) + ' segundos'
+        
+        
     def remove_masks(self):
         
         '''-----\n
@@ -685,10 +777,13 @@ class Landsat(object):
             dgeo = {'B1': '_g_b1.img', 'B2': '_g_b2.img', 'B3': '_g_b3.img', 'B4': '_g_b4.img', 'B5': '_g_b5.img',\
              'B6': '_g_b6.img', 'B7': '_g_b7.img', 'B8': '_g_b8.img', 'B9': '_g_b9.img',\
            'B10': '_g_b10.img', 'B11': '_g_b11.img', 'BQA': '_g_bqa.img'}
-        else:
+        elif self.sat == 'L7':
             dgeo = {'B1': '_g_b1.img', 'B2': '_g_b2.img', 'B3': '_g_b3.img', 'B4': '_g_b4.img', 'B5': '_g_b5.img',\
              'B6_VCID_1': '_g_b6.img', 'B6_VCID_2': '_g_b9.img', 'B7': '_g_b7.img', 'B8': '_g_b8.img'}
-        
+        else:
+            dgeo = {'B1': '_g_b1.img', 'B2': '_g_b2.img', 'B3': '_g_b3.img', 'B4': '_g_b4.img', 'B5': '_g_b5.img',\
+             'B6': '_g_b6.img', 'B7': '_g_b7.img'}
+            
         #cremos la carpeta con la ruta de destino
         destino = os.path.join(self.geo, self.escena)
         if not os.path.exists(destino):
@@ -697,7 +792,7 @@ class Landsat(object):
         ti = time.time()
         #Entramos en el loop dentro de la carpeta y buscamos todos los archivos tipo .TIF
         
-        if self.sat == 'L7':
+        if self.sat == 'L7' and self.escena > '20030714':
             ruta = self.gapfill
         else:
             ruta = self.ruta_escena
@@ -790,10 +885,15 @@ class Landsat(object):
                 'B8-PAN': '_g_b8', 'B9-CI': '_g_b9', 'BQA-CirrusConfidence': '_g_BQA-Cirrus', 'BQA-CloudConfidence': '_g_BQA-Cloud', 'BQA-DesignatedFill': '_g_BQA-DFill',\
                 'BQA-SnowIceConfidence': '_g_BQA-SnowIce', 'BQA-TerrainOcclusion': '_g_BQA-Terrain', 'BQA-WaterConfidence': '_g_BQA-Water'}
             
-            else:
+            elif self.sat == 'L7':
                 
                 d = {'B1-B': '_g_b1', 'B2-G': '_g_b2', 'B3-R': '_g_b3', 'B4-IRp': '_g_b4', 'B5-IRm1': '_g_b5', 'B6-IRt': '_g_b6', 'B7-IRm2': '_g_b7',\
                 'B8-PAN': '_g_b8', 'B9-IRt_HG': '_g_b9'}
+                
+            else:
+                
+                d = {'B1-B': '_g_b1', 'B2-G': '_g_b2', 'B3-R': '_g_b3', 'B4-IRp': '_g_b4', 'B5-IRm1': '_g_b5', 'B6-IRt': '_g_b6', \
+                     'B7-IRm2': '_g_b7'}
                 
             if i.endswith('.doc'):
                 
@@ -935,7 +1035,7 @@ class Landsat(object):
 
             f.close()
             
-        else: #L7
+        elif self.sat == 'L7': 
         
         
             dgeo = {'B1-B': '_g_b1', 'B2-G': '_g_b2', 'B3-R': '_g_b3', 'B4-IRp': '_g_b4', 'B5-IRm1': '_g_b5', 'B6-IRt': '_g_b6', 'B7-IRm2': '_g_b7',\
@@ -986,6 +1086,60 @@ class Landsat(object):
             new_list.remove('NomCamp_6-IRt=6-IRt\n')
             new_list.remove('NomCamp_9-IRt_HG=9-IRt_HG\n')
             new_list.remove('NomCamp_8-PAN=8-PAN\n')
+
+            f = open(rel_file, 'w')
+            for linea in new_list:
+                f.write(linea)
+
+            f.close()
+        
+
+        else: 
+        
+        
+            dgeo = {'B1-B': '_g_b1', 'B2-G': '_g_b2', 'B3-R': '_g_b3', 'B4-IRp': '_g_b4', 'B5-IRm1': '_g_b5', 'B6-IRt': '_g_b6', 'B7-IRm2': '_g_b7'}
+            
+            for l in range(len(lineas)):
+
+                if lineas[l].rstrip() == '[EXTENT]':
+                    lineas[l-1] = pro
+                elif lineas[l].startswith('FileIdentifier'):
+                    lineas[l] = 'FileIdentifier='+ self.escena + '_g_' + lineas[l][-9:]
+                elif lineas[l].startswith('IndividualName'):
+                    lineas[l] = 'IndividualName=Digd_Geo\n'
+                elif lineas[l].startswith('PositionName'):
+                    lineas[l] = 'PositionName=Tecnico GIS-RS LAST-EBD\n'
+                elif lineas[l].startswith('columns'):
+                    lineas[l] = 'columns=8734\n'
+                elif lineas[l].startswith('rows'):
+                    lineas[l] = 'rows=7734\n'
+                elif lineas[l].startswith('MinX'):
+                    lineas[l] = 'MinX=78000\n'
+                elif lineas[l].startswith('MaxX'):
+                    lineas[l] = 'MaxX=340020\n'
+                elif lineas[l].startswith('MinY'):
+                    lineas[l] = 'MinY=4036980\n'
+                elif lineas[l].startswith('MaxY'):
+                    lineas[l] = 'MaxY=4269000\n'
+                elif lineas[l].startswith('max. Y'):
+                    lineas[l] = 'MinY=4036980\n'  
+                elif lineas[l].startswith('HorizontalSystemIdentifier'):
+                    lineas[l] = 'HorizontalSystemIdentifier=UTM-30N-PS\n'
+                elif lineas[l].startswith('IndexsNomsCamps'):
+                    lineas[l] = 'IndexsNomsCamps=1-B,2-G,3-R,4-IRp,5-IRm1,7-IRm2\n'
+                elif lineas[l].startswith('NomFitxer=LT5_202034'):
+                    bandname = lineas[l][30:-8]
+                    lineas[l] = 'NomFitxer='+self.escena+dgeo[bandname]+'.img\n'
+                elif lineas[l] == '[ATTRIBUTE_DATA:6-IRt]\n':
+                    start_b6 = l-1
+                elif lineas[l] == '[ATTRIBUTE_DATA:7-IRm2]\n':
+                    start_b7 = l
+                else: continue
+
+            rel.close()
+
+            new_list = lineas[:start_b6]+lineas[start_b7:]
+            new_list.remove('NomCamp_6-IRt=6-IRt\n')
 
             f = open(rel_file, 'w')
             for linea in new_list:
@@ -1406,8 +1560,8 @@ class Landsat(object):
         bandasl8 = ['b2', 'b3', 'b4', 'b5', 'b6', 'b7']
         bandasl7 = ['b1', 'b2', 'b3', 'b4', 'b5', 'b7']
         
-        if self.sat == 'L7':
-            print 'landsat 7\n'
+        if self.sat == 'L7' or self.sat == 'L5':
+            print 'landsat 5-7\n'
             lstbandas = bandasl7
         else:
             print 'landsat 8\n'
@@ -1484,7 +1638,7 @@ class Landsat(object):
         dnorbandasl8 = {'b2': path_b1, 'b3': path_b2, 'b4': path_b3, 'b5': path_b4, 'b6': path_b5, 'b7': path_b7}
         dnorbandasl7 = {'b1': path_b1, 'b2': path_b2, 'b3': path_b3, 'b4': path_b4, 'b5': path_b5, 'b7': path_b7}
         
-        if self.sat == 'L7':
+        if self.sat == 'L7' or self.sat == 'L5':
             dnorbandas = dnorbandasl7
         else:
             dnorbandas = dnorbandasl8
@@ -2152,4 +2306,3 @@ class Landsat(object):
         print "Escena finalizada en  " + str((time.time() - ini)/60) + " minutos"
 
 ### ToDo: Incluir download,  upload to venus 
-
