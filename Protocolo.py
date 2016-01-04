@@ -1,11 +1,11 @@
-############## PROTOCOLO AUTOMATICO PARA LA NORMALIZACION DE ESCENAS LANDSAT 7 Y 8 ##############
-#######                                                                                   #######
-###### Proyecto Lifewatch Observatorio del Cambio Global                                   ###### 
-##### laboratorio de SIG y Teledeteccion de la Estacion Biologica de Doñana                 #####
-#### Autor: Diego Garcia Diaz                                                                ####
-### email: diegogarcia@ebd.csic.es                                                            ###
-## GitHub: https://github.com/LAST-EBD/Protocolo                                               ##
-# Sevilla 01/10/2014-30/11/2015                                                                 #
+######### PROTOCOLO AUTOMATICO PARA LA NORMALIZACION DE ESCENAS LANDSAT 7 Y 8 ########
+#######                                                                        #######
+###### Proyecto Lifewatch Observatorio del Cambio Global                        ###### 
+##### laboratorio de SIG y Teledeteccion de la Estacion Biologica de Doñana      #####
+#### Autor: Diego Garcia Diaz                                                     ####
+### email: diegogarcia@ebd.csic.es                                                 ###
+## GitHub: https://github.com/LAST-EBD/Protocolo                                    ##
+# Sevilla 01/10/2014-30/11/2015                                                      #
 
 #coding utf-8
 
@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
 from scipy import ndimage
-from osgeo import gdal, gdalconst
+from osgeo import gdal, gdalconst, ogr
 from pymasker import landsatmasker, confidence
 from datetime import datetime
 
@@ -67,14 +67,17 @@ class Landsat(object):
         #metemos una variable que almacene el tipo de satelite
         if 'l7etm' in self.escena:
             self.sat = 'L7'
-            self.gapfill = os.path.join(self.ruta_escena, 'gapfill')
+            if self.escena > '20030714':
+                self.gapfill = os.path.join(self.ruta_escena, 'gapfill')
+            else:
+                self.gapfill = self.ruta_escena
         elif 'l8oli' in self.escena:
             self.sat = 'L8'
         elif 'l5tm' in self.escena:
             self.sat = 'L5'
         else:
             print ' No reconozco el satelite'
-            
+         
         if self.sat == 'L7' and self.escena > '20030714':
             self.mimport = os.path.join(self.gapfill, 'miramon_import')
         else:
@@ -88,7 +91,7 @@ class Landsat(object):
         self.noequilibrado = os.path.join(self.data, 'MASK_1.img')
         self.parametrosnor = {}
         self.iter = 1
-        self.cloud_mask = None #Cambiar a Fmask po defecto
+        self.cloud_mask = 'Fmask' 
         for i in os.listdir(self.ruta_escena):
             if i.endswith('MTL.txt'):
                 mtl = os.path.join(self.ruta_escena,i)
@@ -103,17 +106,20 @@ class Landsat(object):
         arc.close()
         #print "El porcentaje de nubes en la escena es de " + str(cloud_scene)
         #copiamos el mtl a la carpeta gapfill
-        if self.sat == 'L7':
+        if self.sat == 'L7' and self.escena > '20030714':
+            
             dst = os.path.join(self.gapfill, os.path.split(mtl)[1])
             shutil.copy(mtl, dst)
         
         self.newesc = {'_id': self.escena, 'usgs_id': usgs_id, 'lpgs': lpgs, 'Clouds': {'cloud_scene': cloud_scene},\
                        'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': datetime.now(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
+        
+        #iniciamos MongoDB desde el propio script... Gracias por la idea David!
         os.system('mongod')
         # Conectamos con MongoDB 
         connection = pymongo.MongoClient("mongodb://localhost")
 
-        # DB teledeteccion, collection landsat
+        # DataBase: teledeteccion, Collection: landsat
         
         db=connection.teledeteccion
         landsat = db.landsat
@@ -149,9 +155,9 @@ class Landsat(object):
             a = os.system('C:/Cloud_Mask/Fmask 1 1 0 {}'.format(self.umbral))
             a
             if a == 0:
-                self.cloud_mask = 'Fmask'
-                print 'Mascara de nubes (Fmask) generada en ' + str(t-time.time()) + ' segundos'
                 
+                print 'Mascara de nubes (Fmask) generada en ' + str(t-time.time()) + ' segundos'
+     
             else:
                 
                 print 'comenzando BQA'
@@ -175,12 +181,10 @@ class Landsat(object):
         landsat = db.landsat
         
         try:
-            if a == 0:
-                umbral = self.umbral
-            else:
-                umbral = 'BQA'
+            if a != 0:
+                self.umbral = 'BQA'
             
-            landsat.update_one({'_id':self.escena}, {'$set':{'Clouds.umbral': umbral}},  upsert=True)
+            landsat.update_one({'_id':self.escena}, {'$set':{'Clouds.umbral': self.umbral}},  upsert=True)
             
         except Exception as e:
             
@@ -662,6 +666,38 @@ class Landsat(object):
             print 'usando l5 o l7 pregapfill'
             bandas = ['B1', 'B2', 'B3', 'B4','B5', 'B7']
             lista_kl = []
+            
+            #vamos a necesitar un raster con la extension de la escena 202_34 para obtener el kl
+            #como la extension de cada escena es distinta, debemos de tomar el shape de la escena
+            #y pasarlo a raster con la extension de cada escena
+            
+            #obtenemos el extent de la escena del poly_shape
+            wrs = r'C:\Protocolo\data\wrs_202_34.shp'
+            raster_extent = r'C:\Protocolo\data\temp\extent.tif'
+            source_ds = ogr.Open(shape)
+            source_layer = source_ds.GetLayer()
+            x_min, x_max, y_min, y_max = source_layer.GetExtent()
+            extent = str(x_min) + ' ' + str(y_min) + ' ' + str(x_max) + ' ' + str(y_max)
+            #ahora creamos el raster con la extension de la escena, tendra valor 0 
+            #en todo lo que no sea el porpio marco oficial de la escena 202_34
+            s = 'gdal_rasterize -a AREA -tr 30 30 -te {0} -ot Byte -l wrs_202_34 {1} {2}'.format(extent, wrs, raster_extent )
+            cmd = s.split()
+            print cmd
+            proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            stdout,stderr=proc.communicate()
+            exit_code=proc.wait()
+
+            if exit_code: 
+                raise RuntimeError(stderr)
+            else:
+                print stdout
+                print 'raster extent generado'
+            
+            #ya tenemos el raster con el extent de la escena que estamos tratando, ahora pasamos a obtener los kl
+            #abrimos el nuevo raster con el extent para usarlo como mascara
+            with rasterio.open(raster_extent) as src:
+                rsextent = src.read()
+            #comenzamos a recorrer las bandas de la escena  
             for i in os.listdir(ruta):
                 banda = i[-6:-4]
                 if banda in bandas:
@@ -680,12 +716,9 @@ class Landsat(object):
                         print 'Banda ', data.shape
                         mask = data
                         mask[mask != 0] == 1
-                        erodep = ndimage.grey_erosion(mask, size=(10,10,1))
-                        data2 = data[((erodep != 0) & ((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20))))))]
-                        print 'data2 ', data2.mean()
-                        #data2 = data2[(data2 != 0)]
-                        #gaps2 = gaps[((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20)))))]
-                        #data2 = data22[gaps2 == 8]
+                        erodep = ndimage.grey_erosion(mask, size=(15,15,1))
+                        data2 = data[((erodep != 0) & ((rsextent != 0) & (((Fmask==1) | (((Fmask==0)) & (Hillshade<(np.percentile(Hillshade, 20))))))))]
+                        print 'data2_mean ', data2.mean(), ' data2_size', data2.size
 
                     #else: Aqui iri al alternativa con Fmask, pero L7 no tiene banda de calidad, asi que no tiene sentido
                     #abria que poner la mascara del protocolo manual que hizo Javier Bustamante
@@ -694,10 +727,10 @@ class Landsat(object):
                     lista = sorted(data2.tolist())
                     print 'lista: ', lista[:10]
                     #nmask = (data2<lista[1000])#probar a coger los x valores mas bajos, a ver hasta cual aguanta bien
-                    data3 = data2[:self.hist]
-                    print 'data3: ', data3.min(), data3.max()
+                    #data3 = data2[:self.hist]
+                    #print 'data3: ', data3.min(), data3.max()
 
-                    df = pandas.DataFrame(lista[:10000])
+                    df = pandas.DataFrame(lista[:self.hist])
                     #plt.figure(); df.hist(figsize=(10,8), bins = 100)#incluir titulo y rotulos de ejes
                     plt.figure(); df.hist(figsize=(10,8), bins = 20, cumulative=False, color="Red"); 
                     plt.title(self.escena + '_gr_' + banda, fontsize = 18)
@@ -752,7 +785,7 @@ class Landsat(object):
         Este metodo elimina la carpeta en la que hemos ido guardando las mascaras empleadas para obtener los kl y
         la cobertura de nubes en el Parque Nacional'''
         
-        if self.sat == 'L7':
+        if self.sat == 'L7' and self.escena > '20030714':
             ruta = self.gapfill
         else:
             ruta = self.ruta_escena
@@ -1383,8 +1416,8 @@ class Landsat(object):
         if not os.path.exists(path_escena_rad_byte):
             os.makedirs(path_escena_rad_byte)
         
-        cmd = "gdal_translate -ot Byte -of ENVI -scale 0 100 0 254 -a_nodata 255"
-
+        cmd = "gdal_translate -ot Byte -of ENVI -scale 0 100 0 254 -a_nodata 255 --config GDAL_CACHEMAX 8000 --config GDAL_NUM_THREADS ALL_CPUS"
+        
         for i in os.listdir(path_escena_rad):
 
             if i.endswith('img'):
@@ -1393,8 +1426,8 @@ class Landsat(object):
                 output_rs = os.path.join(path_escena_rad_byte, i)
 
                 lst = cmd.split()
-                lst.insert(12, input_rs)#cambiar por lst.append(input_rs)
-                lst.insert(13, output_rs)
+                lst.append(input_rs)
+                lst.append(output_rs)
 
                 proc = subprocess.Popen(lst,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
                 stdout,stderr=proc.communicate()
@@ -2156,7 +2189,10 @@ class Landsat(object):
         
         self.fmask()
         if self.sat == 'L7':
-            self.fmask_legend(self.gapfill)
+            if self.escena > '20030714':
+                self.fmask_legend(self.gapfill)
+            else:
+                self.fmask_legend(self.ruta_escena)
         else:
             self.fmask_legend(self.ruta_escena)
         #self.mascara_cloud_pn()
