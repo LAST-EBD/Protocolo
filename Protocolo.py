@@ -1,7 +1,7 @@
 ######### PROTOCOLO AUTOMATICO PARA LA NORMALIZACION DE ESCENAS LANDSAT 7 Y 8 ########
 #######                                                                        #######
 ###### Proyecto Lifewatch Observatorio del Cambio Global                        ###### 
-##### laboratorio de SIG y Teledeteccion de la Estacion Biologica de Doñana      #####
+##### laboratorio de SIG y Teledeteccion de la Estacion Biologica de Donana      #####
 #### Autor: Diego Garcia Diaz                                                     ####
 ### email: diegogarcia@ebd.csic.es                                                 ###
 ## GitHub: https://github.com/LAST-EBD/Protocolo                                    ##
@@ -23,7 +23,7 @@ class Landsat(object):
     
      
     '''Esta clase esta hecha para ser usada como alternativa automatizada al protocolo para tratamiento de imagenes landsat del
-    Laboratorio de SIG y Teledeteccion de la Estacion Biologica de Doñana. La normalizacion consta de 4 metodos: Importacion, Reproyeccion
+    Laboratorio de SIG y Teledeteccion de la Estacion Biologica de Donana. La normalizacion consta de 4 metodos: Importacion, Reproyeccion
     Correccion Radiometrica y Normalizacion. 
 
     El unico software necesario es Miramon, que se utiliza por su gestion de Metadatos. Se emplea en la Importacion y en la Correccion Radiometrica
@@ -139,7 +139,7 @@ class Landsat(object):
         
         '''-----\n
         Este metodo genera el algortimo Fmask que sera el que vendra por defecto en la capa de calidad de
-        las landsat a partir del otoño de 2015'''
+        las landsat a partir del otono de 2015'''
         
         if self.sat == 'L7' and self.escena > '200030714':
             os.chdir(self.gapfill)
@@ -194,7 +194,7 @@ class Landsat(object):
     def fmask_legend(self, path):
         
         '''-----\n
-        Este metodo añade las lineas necesarias para que Envi reconozca que es una raster categorico con sus
+        Este metodo anade las lineas necesarias para que Envi reconozca que es una raster categorico con sus
         correspondientes valores (Sin definir, Agua, Sombra de nubes, Nieve, Nubes). Se aplicara tanto a la fmask 
         generada en ori, como a la reproyectada en nor'''
         
@@ -229,7 +229,7 @@ class Landsat(object):
 
                 f.close()
                 
-            elif i.endswith('Fmask'):#Añadimos el .img  la Fmask porque David lo quiere...
+            elif i.endswith('Fmask'):#Anadimos el .img  la Fmask porque David lo quiere...
                 
                 src = os.path.join(path, i)
                 dst = src + '.img'
@@ -241,7 +241,7 @@ class Landsat(object):
         '''-----\n
         Este metodo recorta la fmask con el shp del Parque Nacional, para obtener la cobertura nubosa en Parque Nacional en el siguiente paso'''
         
-        shape = os.path.join(self.data, 'Limites_PN_Doñana.shp')
+        shape = os.path.join(self.data, 'Limites_PN_Donana.shp')
         crop = "-crop_to_cutline"
         
         if self.sat == 'L7' and self.escena > '20030714':
@@ -501,7 +501,7 @@ class Landsat(object):
                                 print 'data2: ', data2.min(), data2.max(), data2.size
 
                     print 'data 2 obtenido'
-                    lista_kl.append(data2.min())#añadimos el valor minimo (podria ser perceniles) a la lista de kl
+                    lista_kl.append(data2.min())#anadimos el valor minimo (podria ser perceniles) a la lista de kl
                     lista = sorted(data2.tolist())
                     print 'lista: ', lista[:10]
                     #nmask = (data2<lista[1000])#probar a coger los x valores mas bajos, a ver hasta cual aguanta bien
@@ -606,7 +606,7 @@ class Landsat(object):
                     #else: Aqui iri al alternativa con Fmask, pero L7 no tiene banda de calidad, asi que no tiene sentido
                     #abria que poner la mascara del protocolo manual que hizo Javier Bustamante
                     print 'data 2 obtenido'
-                    lista_kl.append(data2.min())#añadimos el valor minimo (podria ser perceniles) a la lista de kl
+                    lista_kl.append(data2.min())#anadimos el valor minimo (podria ser perceniles) a la lista de kl
                     lista = sorted(data2.tolist())
                     print 'lista: ', lista[:10]
                     #nmask = (data2<lista[1000])#probar a coger los x valores mas bajos, a ver hasta cual aguanta bien
@@ -723,7 +723,7 @@ class Landsat(object):
                     #else: Aqui iri al alternativa con Fmask, pero L7 no tiene banda de calidad, asi que no tiene sentido
                     #abria que poner la mascara del protocolo manual que hizo Javier Bustamante
                     print 'data 2 obtenido'
-                    lista_kl.append(data2.min())#añadimos el valor minimo (podria ser perceniles) a la lista de kl
+                    lista_kl.append(data2.min())#anadimos el valor minimo (podria ser perceniles) a la lista de kl
                     lista = sorted(data2.tolist())
                     print 'lista: ', lista[:10]
                     #nmask = (data2<lista[1000])#probar a coger los x valores mas bajos, a ver hasta cual aguanta bien
@@ -1287,13 +1287,15 @@ class Landsat(object):
                                 os.remove(os.path.join(path_escena_rad, i))
             elif i.startswith('r_'):
                 src = os.path.join(path_escena_rad, i)
-                dst = os.path.join(path_escena_rad, i[2:23]+'r'+i[-7:])
+                dst = os.path.join(path_escena_rad, i[2:].replace('_g_', '_gr_'))
                 os.rename(src, dst)
+                
         #hdrs
         for i in os.listdir(path_escena_rad):
             if i.endswith('.hdr'):
                 src = os.path.join(path_escena_rad, i)
-                dst = os.path.join(path_escena_rad, i[:21]+'r'+i[-7:])
+                dst = os.path.join(path_escena_rad, i.replace('_g_', '_gr_'))
+                #dst = os.path.join(path_escena_rad, i[:21]+'r'+i[-7:])
                 os.rename(src, dst)
             
     
@@ -1845,13 +1847,13 @@ class Landsat(object):
         path_nor = os.path.join(self.nor, self.escena)
         
         for i in os.listdir(path_rad):
-    
-            if i.endswith('.doc') or i.endswith('.rel'):
             
+            if i.endswith('.doc') or i.endswith('.rel'):
+
                 src = os.path.join(path_rad, i)
                 dst = os.path.join(path_nor, i)
                 shutil.copy(src, dst)
-                
+                            
         for i in os.listdir(path_nor):
             
             if i.endswith('.doc') or i.endswith('.rel'):
@@ -2081,8 +2083,7 @@ class Landsat(object):
                 
     def clean_nor(self):
     
-        '''Este elimina del rel las bandas que no se han podido normalizar, asi mismo elimina tambien
-        los docs y hdr de dichas bandas'''
+        '''Este elimina del rel las bandas que no se han podido normalizar, junto con los docs sobrantes'''
 
         path_nor = os.path.join(self.nor, self.escena)
         for i in os.listdir(path_nor):
@@ -2118,7 +2119,7 @@ class Landsat(object):
         docs = [i for i in os.listdir(path_nor) if i.endswith('.doc') and 'grn1' in i]
         hdrs = [i for i in os.listdir(path_nor) if i.endswith('.hdr') and 'grn1' in i]
         todelete = []
-
+        
         #agregamos las bandas a borrar a la lista todelete
         for i in dcnor.keys():
             if not i in bandas:
@@ -2147,24 +2148,24 @@ class Landsat(object):
             os.remove(bat)
 
             #Ahora vamos a borrar los docs y hdrs de las bandas no normalizadas
-            for i in bandas:
-                for j in docs:
-                    if i not in j:
-                        doc = os.path.join(path_nor, j)
-                        os.remove(doc)
-                        print doc, ' borrado'
-
-            for i in bandas:
-                for j in hdrs:
-                    if i not in j:
-                        hdr = os.path.join(path_nor, j)
-                        os.remove(hdr)
-                        print hdr, ' borrado'
-                        
+            for banda in todelete:
+                for i in os.listdir(path_nor):
+                    if banda in i:
+                        rs = os.path.join(path_nor, i)
+                        os.remove(rs)
+                        print 'borrado:', rs                        
         else:
             
             print 'Todas las bandas de la escena se han normalizado'
         
+        if self.sat == 'L8':
+            print 'Borrando bandas 1 y 9'
+            for i in os.listdir(path_nor):
+                if i.endswith('b1.doc') | i.endswith('b9.doc'):
+                    print i
+                    rs = os.path.join(path_nor, i)
+                    os.remove(rs)
+                    
     def caller(self):
     
         ar = os.path.join(self.data, 'caller.bat')
@@ -2309,7 +2310,7 @@ class Landsat(object):
         self.fmask_binary()
         path_nor = os.path.join(self.nor, self.escena)
         self.modify_hdr_rad_pro(path_nor)
-        
+        self.clean_nor()
         
         #Insertamos los datos en MongoDB
         connection = pymongo.MongoClient("mongodb://localhost")
