@@ -104,7 +104,19 @@ class Landsat(object):
                     elif 'PROCESSING_SOFTWARE_VERSION' in i:
                         lpgs = i.split('=')[1][2:-2]
         arc.close()
-        #print "El porcentaje de nubes en la escena es de " + str(cloud_scene)
+		#Vamos a bajar el quicklook de la escena disponible en usgs.explorer y a guardarlo en la carpeta ori
+self.quicklook = os.path.join(self.ruta_escena, usgs_id + '.jpg')
+qcklk = open(self.quicklook,'wb')
+if self.sat == 'L8':
+    s = "http://earthexplorer.usgs.gov/browse/landsat_8/" + self.escena[:4] + "/202/034/" + usgs_id + ".jpg"
+elif self.sat == 'L7':
+    s = "http://earthexplorer.usgs.gov/browse/etm/202/34/" + self.escena[:4] + "/" + usgs_id + "_REFL.jpg"
+elif self.sat == 'L5':
+    s = "http://earthexplorer.usgs.gov/browse/tm/202/34/" + self.escena[:4] + "/" + usgs_id + "_REFL.jpg"
+
+qcklk.write(urllib.urlopen(s).read())
+
+        
         #copiamos el mtl a la carpeta gapfill
         if self.sat == 'L7' and self.escena > '20030714':
             
