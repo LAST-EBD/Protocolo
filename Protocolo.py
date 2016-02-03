@@ -9,7 +9,7 @@
 
 #coding utf-8
 
-import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat
+import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat, urllib
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
@@ -115,7 +115,6 @@ class Landsat(object):
             s = "http://earthexplorer.usgs.gov/browse/tm/202/34/" + self.escena[:4] + "/" + usgs_id + "_REFL.jpg"
 
         qcklk.write(urllib.urlopen(s).read())
-
         
         #copiamos el mtl a la carpeta gapfill
         if self.sat == 'L7' and self.escena > '20030714':
