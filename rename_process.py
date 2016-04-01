@@ -17,7 +17,7 @@ from Protocolo import Landsat
 
 def rename(path):
 
-    '''Esta funcion hace el rename de escenas en una carpeta (por defecto 'C:\Embalses\ori'), desde su nomenclatura en formato USGS 
+    '''Esta funcion hace el rename de escenas en una carpeta (por defecto 'C:\Protocolo\ori'), desde su nomenclatura en formato USGS 
     al formato YearMonthDaySatPath_Row. Funciona para Landsat 5-8. Si hubiera algun problema como posibles escenas duplicadas, 
     imprime la escena que da error y pasa a la siguiente. Las escenas que va renombrando correctamente son impresas en tambien en pantalla
 
