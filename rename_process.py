@@ -8,7 +8,7 @@
 
 #Con este script realizamos de un solo paso la descompresion y borrado de los tar.bz de las Landsat, el rename de la escenas y 
 #La ejecucion del Protocolo para la Correccion Radiometrica. Va trabajando en bucle, de modo que hara todas las escenas
-#Comprimidas en tar.bz que encuentre en el directorio (por defecto C:/Embalses/ori). Por tanto la entrada sera una carpeta donde haya 
+#Comprimidas en tar.bz que encuentre en el directorio (por defecto C:/Protocolo/ori). Por tanto la entrada sera una carpeta donde haya 
 #Escenas comprimidas y la salida sera directamente el resultado de ejecutar la clase Landsat() usada para la Correccion Radiometrica. 
 #Para ejecutarlo solo hay que abrir un cmd y escribir 'python rename_process.py'
 
