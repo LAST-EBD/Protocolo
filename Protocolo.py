@@ -9,7 +9,7 @@
 
 #coding utf-8
 
-import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat, urllib
+import os, shutil, re, time, subprocess, pandas, rasterio, pymongo, sys, fileinput, stat, urllib2
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
@@ -17,6 +17,8 @@ from scipy import ndimage
 from osgeo import gdal, gdalconst, ogr
 from pymasker import landsatmasker, confidence
 from datetime import datetime
+from IPython.display import Image
+from IPython.display import display
 
 
 class Landsat(object):
@@ -50,100 +52,110 @@ class Landsat(object):
     def __init__(self, ruta, umbral=50, hist=1000):
         
         
-        '''Instanciamos la clase con la escena que vayamos a procesar, hay que introducir la ruta a la escena en ori
-        y de esa ruta el constructor obtiene el resto de rutas que necesita para ejecutarse. Los parametros marcados por defecto son el 
-        umbral para la mascara de nubes Fmask y el numero de elementos a incluir en el histograma de las bandas'''
-                
-        self.ruta_escena = ruta
-        self.ori = os.path.split(ruta)[0]
-        self.escena = os.path.split(ruta)[1]
-        self.raiz = os.path.split(self.ori)[0]
-        self.geo = os.path.join(self.raiz, 'geo')
-        self.rad = os.path.join(self.raiz, 'rad')
-        self.nor = os.path.join(self.raiz, 'nor')
-        self.data = os.path.join(self.raiz, 'data')
-        self.umbral = umbral
-        self.hist = hist
-        #metemos una variable que almacene el tipo de satelite
-        if 'l7etm' in self.escena:
-            self.sat = 'L7'
-            if self.escena > '20030714':
-                self.gapfill = os.path.join(self.ruta_escena, 'gapfill')
-            else:
-                self.gapfill = self.ruta_escena
-        elif 'l8oli' in self.escena:
-            self.sat = 'L8'
-        elif 'l5tm' in self.escena:
-            self.sat = 'L5'
-        else:
-            print ' No reconozco el satelite'
-         
-        if self.sat == 'L7' and self.escena > '20030714':
-            self.mimport = os.path.join(self.gapfill, 'miramon_import')
-        else:
-            self.mimport = os.path.join(self.ruta_escena, 'miramon_import')
-        if not os.path.exists(self.mimport):
-            os.makedirs(self.mimport)
-            
-        self.bat = os.path.join(self.ruta_escena, 'import.bat')
-        self.bat2 = os.path.join(self.rad, 'importRad.bat')
-        self.equilibrado = os.path.join(self.data, 'equilibrada.img')
-        self.noequilibrado = os.path.join(self.data, 'MASK_1.img')
-        self.parametrosnor = {}
-        self.iter = 1
-        self.cloud_mask = 'Fmask' 
-        for i in os.listdir(self.ruta_escena):
-            if i.endswith('MTL.txt'):
-                mtl = os.path.join(self.ruta_escena,i)
-                arc = open(mtl,'r')
-                for i in arc:
-                    if 'LANDSAT_SCENE_ID' in i:
-                        usgs_id = i[-23:-2]
-                    elif 'CLOUD_COVER' in i:
-                        cloud_scene = float(i[-6:-1])
-                    elif 'PROCESSING_SOFTWARE_VERSION' in i:
-                        lpgs = i.split('=')[1][2:-2]
-        arc.close()
+		'''Instanciamos la clase con la escena que vayamos a procesar, hay que introducir la ruta a la escena en ori
+		y de esa ruta el constructor obtiene el resto de rutas que necesita para ejecutarse. Los parametros marcados por defecto son el 
+		umbral para la mascara de nubes Fmask y el numero de elementos a incluir en el histograma de las bandas'''
+		self.ruta_escena = ruta
+		self.ori = os.path.split(ruta)[0]
+		self.escena = os.path.split(ruta)[1]
+		self.raiz = os.path.split(self.ori)[0]
+		self.geo = os.path.join(self.raiz, 'geo')
+		self.rad = os.path.join(self.raiz, 'rad')
+		self.nor = os.path.join(self.raiz, 'nor')
+		self.data = os.path.join(self.raiz, 'data')
+		self.umbral = umbral
+		self.hist = hist
+		#metemos una variable que almacene el tipo de satelite
+		if 'l7etm' in self.escena:
+			self.sat = 'L7'
+			if self.escena > '20030714':
+				self.gapfill = os.path.join(self.ruta_escena, 'gapfill')
+			else:
+				self.gapfill = self.ruta_escena
+		elif 'l8oli' in self.escena:
+			self.sat = 'L8'
+		elif 'l5tm' in self.escena:
+			self.sat = 'L5'
+		else:
+			print ' No reconozco el satelite'
+		 
+		if self.sat == 'L7' and self.escena > '20030714':
+			self.mimport = os.path.join(self.gapfill, 'miramon_import')
+		else:
+			self.mimport = os.path.join(self.ruta_escena, 'miramon_import')
+		if not os.path.exists(self.mimport):
+			os.makedirs(self.mimport)
+
+		print self.sat, self.escena
+		self.bat = os.path.join(self.ruta_escena, 'import.bat')
+		self.bat2 = os.path.join(self.rad, 'importRad.bat')
+		self.equilibrado = os.path.join(self.data, 'equilibrada.img')
+		self.noequilibrado = os.path.join(self.data, 'MASK_1.img')
+		self.parametrosnor = {}
+		self.iter = 1
+		self.cloud_mask = 'Fmask' 
+		for i in os.listdir(self.ruta_escena):
+			#print i
+			if i.endswith('MTL.txt'):
+				mtl = os.path.join(self.ruta_escena,i)
+				#print mtl
+				arc = open(mtl,'r')
+				for i in arc:
+					if 'LANDSAT_SCENE_ID' in i:
+						usgs_id = i[-23:-2]
+					elif 'CLOUD_COVER' in i:
+						cloud_scene = float(i[-6:-1])
+					elif 'PROCESSING_SOFTWARE_VERSION' in i:
+						lpgs = i.split('=')[1][2:-2]
+		arc.close()
 		#Vamos a bajar el quicklook de la escena disponible en usgs.explorer y a guardarlo en la carpeta ori
-        self.quicklook = os.path.join(self.ruta_escena, usgs_id + '.jpg')
-        qcklk = open(self.quicklook,'wb')
-        if self.sat == 'L8':
-            s = "http://earthexplorer.usgs.gov/browse/landsat_8/" + self.escena[:4] + "/202/034/" + usgs_id + ".jpg"
-        elif self.sat == 'L7':
-            s = "http://earthexplorer.usgs.gov/browse/etm/202/34/" + self.escena[:4] + "/" + usgs_id + "_REFL.jpg"
-        elif self.sat == 'L5':
-            s = "http://earthexplorer.usgs.gov/browse/tm/202/34/" + self.escena[:4] + "/" + usgs_id + "_REFL.jpg"
+		#self.quicklook = os.path.join(self.ruta_escena, usgs_id + '.jpg')
 
-        qcklk.write(urllib.urlopen(s).read())
-        
-        #copiamos el mtl a la carpeta gapfill
-        if self.sat == 'L7' and self.escena > '20030714':
-            
-            dst = os.path.join(self.gapfill, os.path.split(mtl)[1])
-            shutil.copy(mtl, dst)
-        
-        self.newesc = {'_id': self.escena, 'usgs_id': usgs_id, 'lpgs': lpgs, 'Clouds': {'cloud_scene': cloud_scene},\
-                       'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': datetime.now(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
-        
-        #iniciamos MongoDB desde el propio script... Gracias por la idea David!
-        os.system('mongod')
-        # Conectamos con MongoDB 
-        connection = pymongo.MongoClient("mongodb://localhost")
+		######### DESCOMENTAR ESTAS LINEAS PARA GUARDAR EL QUICKLOOK!!!!!!!!!!!!!!!!#####################
 
-        # DataBase: teledeteccion, Collection: landsat
-        
-        db=connection.teledeteccion
-        landsat = db.landsat
-        
-        try:
-        
-            landsat.insert_one(self.newesc)
-        
-        except Exception as e:
-            
-            landsat.update_one({'_id':self.escena}, {'$set':{'Info.Iniciada': datetime.now()}})
-            #print "Unexpected error:", type(e), se Podria dar un error por clave unica, por eso en
-            #ese caso, lo que hacemos es actualizar la fecha en la que tratamos la imagen
+		#qcklk = open(self.quicklook,'wb')
+		#if self.sat == 'L8':
+			#s = "http://earthexplorer.usgs.gov/browse/landsat_8/" + self.escena[:4] + "/202/034/" + usgs_id + ".jpg"
+			#print s
+		#elif self.sat == 'L7':
+			#s = "http://earthexplorer.usgs.gov/browse/etm/202/34/" + self.escena[:4] + "/" + usgs_id + "_REFL.jpg"
+		#elif self.sat == 'L5':
+			#s = "http://earthexplorer.usgs.gov/browse/tm/202/34/" + self.escena[:4] + "/" + usgs_id + "_REFL.jpg"
+		#intento corregir dab(2017/01/10)el error qcklk.write(urllib.request.urlopen(s).read())
+		#u2=urllib2.urlopen(s)
+		#junk=u2.read()
+		#qcklk.write(junk)
+		#qcklk.close()
+		#display(Image(url=s, width=500))
+
+		#copiamos el mtl a la carpeta gapfill
+		if self.sat == 'L7' and self.escena > '20030714':
+			
+			dst = os.path.join(self.gapfill, os.path.split(mtl)[1])
+			shutil.copy(mtl, dst)
+
+		self.newesc = {'_id': self.escena, 'usgs_id': usgs_id, 'lpgs': lpgs, 'Clouds': {'cloud_scene': cloud_scene},\
+					   'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': datetime.now(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
+
+		#iniciamos MongoDB desde el propio script... Gracias por la idea David!
+		os.system('mongod')
+		# Conectamos con MongoDB 
+		connection = pymongo.MongoClient("mongodb://localhost")
+
+		# DataBase: teledeteccion, Collection: landsat
+
+		db=connection.teledeteccion
+		landsat = db.landsat
+
+		try:
+
+			landsat.insert_one(self.newesc)
+
+		except Exception as e:
+			
+			landsat.update_one({'_id':self.escena}, {'$set':{'Info.Iniciada': datetime.now()}})
+			#print "Unexpected error:", type(e), se Podria dar un error por clave unica, por eso en
+			#ese caso, lo que hacemos es actualizar la fecha en la que tratamos la imagen
             
             
     def fmask(self):
@@ -942,7 +954,9 @@ class Landsat(object):
             if i.endswith('.doc'):
                 
                 number = i[20:-7]
+                print number
                 key = d[number]
+                print key
                 src = os.path.join(self.mimport, i)
                 dst = os.path.join(rutageo, self.escena + key + '.doc')
                 shutil.copy(src, dst)
