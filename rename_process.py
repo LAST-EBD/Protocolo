@@ -79,7 +79,7 @@ def untar(ruta):
                 print i, 'descomprimido'
                 tar.close()
                 os.remove(fname)
-                os.chdir(r'C:\Embalses')
+                os.chdir(r'C:\Protocolo')
                 escena = Landsat(nfname)
                 escena.run_all()
                 
