@@ -102,31 +102,37 @@ class Landsat(object):
 				arc = open(mtl,'r')
 				for i in arc:
 					if 'LANDSAT_SCENE_ID' in i:
-						usgs_id = i[-23:-2]
+						usgs_old_id = i[-23:-2] #este es el antiguo nombre de Landsat
+					elif 'LANDSAT_PRODUCT_ID' in i:
+						usgs_new_id = i.split('=')[-1][2:-2]
 					elif 'CLOUD_COVER' in i:
 						cloud_scene = float(i[-6:-1])
 					elif 'PROCESSING_SOFTWARE_VERSION' in i:
 						lpgs = i.split('=')[1][2:-2]
 		arc.close()
 		#Vamos a bajar el quicklook de la escena disponible en usgs.explorer y a guardarlo en la carpeta ori
-		#self.quicklook = os.path.join(self.ruta_escena, usgs_id + '.jpg')
+		print 'Ahora vamos a guardar la captura'
+		self.quicklook = os.path.join(self.ruta_escena, usgs_old_id + '.jpg')
 
 		######### DESCOMENTAR ESTAS LINEAS PARA GUARDAR EL QUICKLOOK!!!!!!!!!!!!!!!!#####################
-
-		#qcklk = open(self.quicklook,'wb')
-		#if self.sat == 'L8':
-			#s = "http://earthexplorer.usgs.gov/browse/landsat_8/" + self.escena[:4] + "/202/034/" + usgs_id + ".jpg"
-			#print s
-		#elif self.sat == 'L7':
-			#s = "http://earthexplorer.usgs.gov/browse/etm/202/34/" + self.escena[:4] + "/" + usgs_id + "_REFL.jpg"
-		#elif self.sat == 'L5':
-			#s = "http://earthexplorer.usgs.gov/browse/tm/202/34/" + self.escena[:4] + "/" + usgs_id + "_REFL.jpg"
+		if self.sat == 'L7':
+			sensor = 'etm'
+		elif self.sat == 'L5' or self.sat == 'L4':
+			sensor = 'tm'
+		
+		qcklk = open(self.quicklook,'wb')
+		if self.sat == 'L8':
+			s = 'https://earthexplorer.usgs.gov/browse/landsat_8/{}/202/034/{}.jpg'.format(self.escena[:4], usgs_new_id)
+			print s
+		else:
+			s = 'https://earthexplorer.usgs.gov/browse/{}/202/34/{}/{}_REFL.jpg'.format(sensor, self.escena[:4], usgs_new_id)
+			print s
 		#intento corregir dab(2017/01/10)el error qcklk.write(urllib.request.urlopen(s).read())
-		#u2=urllib2.urlopen(s)
-		#junk=u2.read()
-		#qcklk.write(junk)
-		#qcklk.close()
-		#display(Image(url=s, width=500))
+		u2=urllib2.urlopen(s)
+		junk=u2.read()
+		qcklk.write(junk)
+		qcklk.close()
+		display(Image(url=s, width=500))
 
 		#copiamos el mtl a la carpeta gapfill
 		if self.sat == 'L7' and self.escena > '20030714':
@@ -134,7 +140,7 @@ class Landsat(object):
 			dst = os.path.join(self.gapfill, os.path.split(mtl)[1])
 			shutil.copy(mtl, dst)
 
-		self.newesc = {'_id': self.escena, 'usgs_id': usgs_id, 'lpgs': lpgs, 'Clouds': {'cloud_scene': cloud_scene},\
+		self.newesc = {'_id': self.escena, 'usgs_id': usgs_old_id, 'lpgs': lpgs, 'Clouds': {'cloud_scene': cloud_scene},\
 					   'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': datetime.now(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
 
 		#iniciamos MongoDB desde el propio script... Gracias por la idea David!
