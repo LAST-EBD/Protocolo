@@ -1,7 +1,10 @@
 
 import os, re, time, tarfile, shutil
-from future import print
-from Protocolo import Landsat
+from __future__ import print_function
+#from Protocolo import Landsat
+
+usgs_OLD_id = None
+usgs_NEW_id = None
 
 def rename(ruta):
 
@@ -24,29 +27,44 @@ def rename(ruta):
                 arc = open(mtl,'r')
                 for i in arc:
                     if 'LANDSAT_SCENE_ID' in i:
+                        global usgs_OLD_id 
                         usgs_OLD_id = i[-23:-2] #este es el antiguo nombre de Landsat
                     elif 'LANDSAT_PRODUCT_ID' in i:
-                         usgs_NEW_id = i.split('=')[-1][2:-2]
+                        global usgs_NEW_id 
+                        usgs_NEW_id= i.split('=')[-1][2:-2]
+                    
                             
                             
                 #A VER SI SE PUEDE INCLUIR EL RENAME DE LAS BANDAS Y DEL MTL AQUI DENTRO
                 arc.seek(0)
                 lineas = arc.readlines()
                 
-                for l in range(len(lineas)):
+                for n, e in enumerate(lineas):
 
-                    if usgs_NEW_id in lineas[l] and not "LANDSAT_PRODUCT_ID" in lineas[l]:
-
-                        lineas[l] = lineas[l].replace(usgs_NEW_id, usgs_OLD_id)
-                        print(lineas[l])
+                    if usgs_NEW_id in e and not "LANDSAT_PRODUCT_ID" in e:
+                        lineas[n] = lineas[n].replace(usgs_NEW_id, usgs_OLD_id)
+                
+                for n, e in enumerate(lineas):
+                    
+                    if 'FILE_NAME_BAND_QUALITY' in e:
+                        ix = n
+                
 
                     else: continue
+                    
+                arc.close()
 
-                    arc.close()
-
-                    f = open(mtl, 'w')
-                    for linea in lineas:
-                        f.write(linea)
+                print('Escena:', sc, 'Indice Quality band:', ix)
+                
+                if not 'LC08' in sc:
+                    print('Eliminando BQA de', sc)
+                    lineas.pop(ix)
+                else:
+                    print('Escena', sc)
+                    
+                f = open(mtl, 'w')
+                for linea in lineas:
+                    f.write(linea)
 
                 f.close()                
                 #YA ESTARIAN CAMBIADOS LOS NOMBRES EN EL MTL, AHORA HAY QUE CAMBIAR LOS NOMBRES DE LAS BANDAS
@@ -84,17 +102,7 @@ def rename(ruta):
                 except Exception as e:
                     print(e, ruta_escena)
                     
-        #ESTAS LINEAS SERIAN NECESARIAS SI SE NECESITARA HACER EL UNZIP ANTES DE PASAR LA ESCENA AL GAPFILL, LO QUE
-        #AUN ESTA POR VER
-        '''for i in os.listdir(ruta_escena):
-            
-            if 'gap_mask' in  i and os.path.isdir(os.path.join(escena, i)):
-                gapmask = os.path.join(escena, i)
-
-                for i in os.listdir(gapmask):
-
-                    if i.endswith('tar.gz'):'''
-    
+                
         
 def untar(ruta):
 
@@ -188,7 +196,47 @@ def rename_bands(ruta):
             oname = os.path.join(ruta_escena, ii)
 
             os.rename(oname, nname)
-            #print('II:', oname, '--->', nname, '\n')
+            #print('II:', oname, '--->', nname, '\n')            
+        
+        
+        if os.path.exists(os.path.join(ruta_escena, 'gap_mask')):
+            ruta_gapmask = os.path.join(ruta_escena, 'gap_mask')
+            print('\nVAMOS A RENOMBRAR LAS GAPMASK', 'gap:', ruta_gapmask, 'oldID:', usgs_OLD_id, 'NewID:', usgs_NEW_id, '\n')
+            rename_gapmask(ruta_gapmask, usgs_OLD_id, usgs_NEW_id)
+            
+        #del_bqa(ruta_escena)
+            
+            
+def rename_gapmask(ruta_gapmask, old_id, new_id):
+    
+    for i in os.listdir(ruta_gapmask):
+        
+        nname = os.path.join(ruta_gapmask, i.replace(usgs_NEW_id, usgs_OLD_id))
+        oname = os.path.join(ruta_gapmask, i)
+        
+        os.rename(oname, nname)
+        
+def del_bqa(ruta):
+    
+    print('In del_bqa')
+    
+        
+    for sc in os.listdir(ruta):
+        
+        if not 'LC08' in sc:
+
+            if os.path.isdir(os.path.join(ruta, sc)):
+                ruta_escena = os.path.join(ruta, sc)
+
+            #print('Eliminando BQA de', ruta_escena)
+            for i in os.listdir(ruta_escena):
+                if i.endswith('BQA.TIF'):
+                    bqa = os.path.join(ruta_escena, i)
+
+                    os.remove(bqa)
+        else:
+            print('L8 is fine')
+           
             
             
 #path = os.getcwd() Se podria hacer en el directorio que se quisiera
@@ -197,13 +245,18 @@ if __name__ == "__main__":
     untar(ruta)
     rename(ruta)
     rename_bands(ruta)
+    del_bqa(ruta)
     #Llamamos al Protocolo para todas las escenas ya descomprimidas de la carpeta ori
     for sc in os.listdir(ruta):
         
         if os.path.isdir(os.path.join(ruta, sc)):
-            ruta_escena = os.path.join(ruta, sc)
-            print('\nESCENA A PROCESAR:', sc)
-            MiEscena = Landsat(ruta_escena)
-            MiEscena.run_all()
+        
+            if 'l7etm' in sc and sc > '20030714':
+                print('Landsat 7', sc,  'lista para aplicar el gapfill')
+
+            else:
+                ruta_escena = os.path.join(ruta, sc)
+                print('ESCENA A PROCESAR:', sc)
+                #MiEscena = Landsat(ruta_escena)
         
 print('zACABO')
