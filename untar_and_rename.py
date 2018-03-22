@@ -1,7 +1,7 @@
 
 import os, re, time, tarfile, shutil
 from __future__ import print_function
-#from Protocolo import Landsat
+from Protocolo import Landsat
 
 usgs_OLD_id = None
 usgs_NEW_id = None
@@ -241,7 +241,7 @@ def del_bqa(ruta):
             
 #path = os.getcwd() Se podria hacer en el directorio que se quisiera
 if __name__ == "__main__":
-    ruta = r'C:\Protocolo'
+    ruta = r'C:\Protocolo\ori'
     untar(ruta)
     rename(ruta)
     rename_bands(ruta)
