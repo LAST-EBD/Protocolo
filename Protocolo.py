@@ -143,8 +143,8 @@ class Landsat(object):
 		self.newesc = {'_id': self.escena, 'usgs_id': usgs_old_id, 'lpgs': lpgs, 'Clouds': {'cloud_scene': cloud_scene},\
 					   'Info': {'Tecnico': 'LAST-EBD Auto', 'Iniciada': datetime.now(),'Pasos': {'geo': '', 'rad': '', 'nor': ''}}}
 
-		#iniciamos MongoDB desde el propio script... Gracias por la idea David!
-		os.system('mongod')
+		#iniciamos MongoDB desde el propio script... 
+		#os.system('mongod')
 		# Conectamos con MongoDB 
 		connection = pymongo.MongoClient("mongodb://localhost")
 

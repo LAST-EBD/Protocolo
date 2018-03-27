@@ -223,7 +223,8 @@ def del_bqa(ruta):
         
     for sc in os.listdir(ruta):
         
-        if not 'LC08' in sc:
+        print('SC desde del_bqa', sc)
+        if not 'l8oli' in sc:
 
             if os.path.isdir(os.path.join(ruta, sc)):
                 ruta_escena = os.path.join(ruta, sc)
@@ -257,6 +258,7 @@ if __name__ == "__main__":
             else:
                 ruta_escena = os.path.join(ruta, sc)
                 print('ESCENA A PROCESAR:', sc)
-                #MiEscena = Landsat(ruta_escena)
+                MiEscena = Landsat(ruta_escena)
+                MiEscena.run_all()
         
 print('zACABO')
